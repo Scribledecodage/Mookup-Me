@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nookup</title>
+    <link rel="icon" type="image/png" href="/assets/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f2f3f4;
+            color: #2c2e33;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            html { color-scheme: dark; }
+            body { background-color: #202225; color: #eceeef; }
+        }
+
+        .app-next-section {
+            background-color: #ffffff;
+            min-height: 10vh;
+        }
+
+        .app-header {
+            background-color: #5046e5;
+            position: relative;
+            overflow: hidden;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .app-nav {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 20px 32px;
+        }
+
+        .app-nav-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .app-nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .app-nav img {
+            width: 32px;
+            height: 32px;
+            display: block;
+        }
+
+        .app-nav-brand span {
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 800;
+            font-size: 1.1em;
+            letter-spacing: 0.02em;
+        }
+
+        .app-nav-right {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .app-nav-discord {
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            font-size: 22px;
+            line-height: 1;
+            opacity: 0.9;
+            text-decoration: none;
+            transition: opacity 0.15s ease;
+        }
+
+        .app-nav-discord:hover { opacity: 1; }
+
+        .app-nav-burger {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 40px;
+            height: 40px;
+            background: transparent;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        .app-nav-burger span {
+            display: block;
+            width: 22px;
+            height: 2.5px;
+            border-radius: 2px;
+            background: #ffffff;
+            transition: transform 0.25s ease, opacity 0.2s ease;
+        }
+
+        .app-nav-burger.is-open span:nth-child(1) { transform: translateY(8.5px) rotate(45deg); }
+        .app-nav-burger.is-open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        .app-nav-burger.is-open span:nth-child(3) { transform: translateY(-8.5px) rotate(-45deg); }
+
+        .app-nav-mobile-menu { display: none; }
+
+        @media (max-width: 760px) {
+            .app-nav-right { display: none; }
+            .app-nav-burger { display: inline-flex; }
+
+            .app-nav-mobile-menu.is-open { display: flex; }
+            .app-nav-mobile-menu {
+                position: absolute;
+                top: 72px;
+                right: 32px;
+                left: 32px;
+                z-index: 3;
+                flex-direction: column;
+                gap: 4px;
+                background: #5046e5;
+                border: 1.5px solid rgba(255,255,255,0.25);
+                border-radius: 12px;
+                padding: 12px;
+                box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+            }
+
+            .app-nav-mobile-menu .app-nav-discord {
+                padding: 10px 12px;
+                border-radius: 8px;
+                border: none;
+                justify-content: flex-start;
+            }
+
+            .app-nav-mobile-menu .app-nav-discord--text {
+                font-size: 1em;
+                font-weight: 400;
+            }
+        }
+
+        .app-header .shape {
+            position: absolute;
+            opacity: 0.45;
+            background: #ffffff;
+        }
+
+        .app-header .shape--circle { border-radius: 50%; }
+        .app-header .shape--square { border-radius: 6px; }
+
+        .app-header .shape--cross { background: none; opacity: 0.45; }
+        .app-header .shape--cross::before,
+        .app-header .shape--cross::after {
+            content: '';
+            position: absolute;
+            background: #ffffff;
+            border-radius: 3px;
+        }
+        .app-header .shape--cross::before { top: 50%; left: 0; width: 100%; height: 28%; transform: translateY(-50%); }
+        .app-header .shape--cross::after { left: 50%; top: 0; height: 100%; width: 28%; transform: translateX(-50%); }
+
+        .app-header .shape-1 { width: 22px; height: 22px; top: 12%; left: 7%; }
+        .app-header .shape-2 { width: 24px; height: 24px; top: 9%; right: 9%; transform: rotate(15deg); }
+        .app-header .shape-3 { width: 26px; height: 26px; top: 45%; left: 4%; }
+        .app-header .shape-4 { width: 14px; height: 14px; top: 30%; right: 16%; }
+        .app-header .shape-5 { width: 12px; height: 12px; bottom: 42%; left: 16%; }
+        .app-header .shape-6 { width: 24px; height: 24px; top: 55%; right: 6%; transform: rotate(10deg); }
+        .app-header .shape-7 { width: 18px; height: 18px; bottom: 6%; left: 3%; }
+        .app-header .shape-8 { width: 16px; height: 16px; bottom: 8%; right: 15%; transform: rotate(-12deg); }
+
+        .app-header-inner {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            min-height: calc(100vh - 72px);
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .app-header-title {
+            margin: 6vh 24px 0;
+            max-width: 780px;
+            text-align: center;
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 800;
+            font-size: clamp(1.8em, 4vw, 2.8em);
+            line-height: 1.25;
+        }
+
+        .app-header-subtitle {
+            margin: 14px 24px 0;
+            max-width: 560px;
+            text-align: center;
+            color: #c7c6fb;
+            font-weight: 400;
+            font-size: 1em;
+            line-height: 1.5;
+        }
+
+        .app-header-ctas {
+            margin: 34px 24px 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 14px;
+        }
+
+        .app-header-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #ffffff;
+            color: #5046e5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 600;
+            font-size: 1.05em;
+            text-decoration: none;
+            padding: 14px 26px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.15s ease;
+        }
+
+        .app-header-cta:hover { opacity: 0.9; }
+        .app-header-cta i { font-size: 20px; }
+
+        .app-header-illustration-wrap {
+            position: relative;
+            margin-top: auto;
+            width: min(1050px, 96vw);
+        }
+
+        .app-header-illustration-crop {
+            overflow: hidden;
+            aspect-ratio: 1000 / 474;
+        }
+
+        .app-header-illustration {
+            display: block;
+            width: 100%;
+            height: auto;
+            margin-top: -10%;
+        }
+
+        .app-header-badge {
+            position: absolute;
+            top: 1.5%;
+            left: 15%;
+            transform: translate(-50%, -50%);
+            width: 84px;
+            height: 84px;
+            z-index: 1;
+        }
+
+        .app-header-phone {
+            position: absolute;
+            right: -4%;
+            bottom: -12%;
+            width: min(220px, 18vw);
+            z-index: 2;
+        }
+
+        .app-header-clover {
+            position: absolute;
+            right: 6%;
+            bottom: 50%;
+            transform: translateY(115px);
+            width: min(140px, 11vw);
+            aspect-ratio: 1 / 1;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .app-header-clover #four-leaf-clover { pointer-events: visiblePainted; }
+
+        .app-header-coffee-wrap {
+            position: absolute;
+            bottom: 0;
+            left: 7%;
+            width: min(380px, 30vw);
+            z-index: 2;
+        }
+
+        .app-header-coffee-crop {
+            overflow: hidden;
+            aspect-ratio: 160 / 128;
+        }
+
+        .app-header-coffee {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .feature-section {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 140px 32px;
+            display: flex;
+            align-items: center;
+            gap: 110px;
+        }
+
+        .feature-media {
+            flex: 1 1 420px;
+            min-width: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .feature-media img {
+            width: 100%;
+            max-width: 420px;
+            height: auto;
+            display: block;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.18);
+        }
+
+        .feature-media img.no-clip {
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .feature-text {
+            flex: 1 1 420px;
+            min-width: 0;
+        }
+
+        .feature-title {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 800;
+            font-size: clamp(2.2em, 4vw, 3.2em);
+            line-height: 1.2;
+            margin: 0 0 20px;
+            color: #111214 !important;
+        }
+
+        .feature-desc {
+            font-size: 1.05em;
+            line-height: 1.6;
+            color: #111214 !important;
+            margin: 0;
+        }
+
+        @media (max-width: 760px) {
+            .feature-section { flex-direction: column; padding: 90px 24px; gap: 36px; }
+            /* flex-basis en colonne devient une hauteur : sans ça, media/text gardent 420px de haut. */
+            .feature-media,
+            .feature-text { flex-basis: auto; }
+            .feature-text { text-align: center; }
+        }
+
+        .feature-section--reverse .feature-media { order: 2; }
+        .feature-section--reverse .feature-text { order: 1; }
+
+        .feature-section--roomy { padding: 180px 32px; gap: 140px; }
+        @media (max-width: 760px) {
+            .feature-section--roomy { padding: 100px 24px; gap: 48px; }
+        }
+
+        .feature-section--muted {
+            background-color: #f0f1f3 !important;
+            position: relative;
+        }
+
+        .feature-section--muted .feature-title,
+        .feature-section--muted .feature-desc {
+            color: #111214 !important;
+        }
+
+        .muted-shapes {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .muted-shapes .shape { position: absolute; opacity: 0.45; background: #9a9ea8; }
+        .muted-shapes .shape--circle { border-radius: 50%; }
+        .muted-shapes .shape--square { border-radius: 6px; }
+        .muted-shapes .shape--cross { background: none; }
+        .muted-shapes .shape--cross::before,
+        .muted-shapes .shape--cross::after {
+            content: '';
+            position: absolute;
+            background: #9a9ea8;
+            border-radius: 3px;
+        }
+        .muted-shapes .shape--cross::before { top: 50%; left: 0; width: 100%; height: 28%; transform: translateY(-50%); }
+        .muted-shapes .shape--cross::after { left: 50%; top: 0; height: 100%; width: 28%; transform: translateX(-50%); }
+
+        .muted-shapes .m-shape-1 { width: 20px; height: 20px; top: 10%; left: 6%; }
+        .muted-shapes .m-shape-2 { width: 22px; height: 22px; top: 14%; right: 8%; transform: rotate(12deg); }
+        .muted-shapes .m-shape-3 { width: 24px; height: 24px; bottom: 12%; left: 10%; transform: rotate(-8deg); }
+        .muted-shapes .m-shape-4 { width: 16px; height: 16px; top: 55%; right: 5%; }
+        .muted-shapes .m-shape-5 { width: 18px; height: 18px; bottom: 16%; right: 20%; transform: rotate(20deg); }
+        .muted-shapes .m-shape-6 { width: 14px; height: 14px; top: 60%; left: 4%; }
+
+        .feature-section--muted .feature-section { position: relative; z-index: 1; }
+
+        .feature-wave {
+            position: absolute;
+            top: -69px;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            display: block;
+        }
+
+        .site-footer {
+            background-color: #1a1a1a;
+            padding: 24px 32px;
+        }
+
+        .footer-bottom {
+            max-width: 1100px;
+            margin: 0 auto;
+            color: #787c84;
+            font-size: 0.85em;
+            text-align: center;
+        }
+
+        .final-cta-section {
+            background-color: #f0f1f3 !important;
+            position: relative;
+            padding: 140px 32px;
+            text-align: center;
+        }
+
+        .final-cta-shapes {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .final-cta-shapes .shape { position: absolute; opacity: 0.85; }
+        .final-cta-shapes .shape--square { border-radius: 8px; }
+        .final-cta-shapes .shape--cross { background: none; }
+        .final-cta-shapes .shape--cross::before,
+        .final-cta-shapes .shape--cross::after {
+            content: '';
+            position: absolute;
+            background: var(--cross-color, #5046e5);
+            border-radius: 3px;
+        }
+        .final-cta-shapes .shape--cross::before { top: 50%; left: 0; width: 100%; height: 28%; transform: translateY(-50%); }
+        .final-cta-shapes .shape--cross::after { left: 50%; top: 0; height: 100%; width: 28%; transform: translateX(-50%); }
+
+        .final-cta-shapes .f-shape-1 { width: 26px; height: 26px; top: 10%; left: 8%; background: #fbcfe8; transform: rotate(10deg); }
+        .final-cta-shapes .f-shape-2 { width: 20px; height: 20px; top: 22%; left: 16%; --cross-color: #fde68a; }
+        .final-cta-shapes .f-shape-3 { width: 22px; height: 22px; top: 14%; right: 22%; background: #99f6e4; transform: rotate(-14deg); }
+        .final-cta-shapes .f-shape-4 { width: 26px; height: 26px; top: 18%; right: 8%; --cross-color: #ddd6fe; transform: rotate(8deg); }
+        .final-cta-shapes .f-shape-5 { width: 20px; height: 20px; top: 62%; left: 12%; background: #fed7aa; transform: rotate(18deg); }
+        .final-cta-shapes .f-shape-6 { width: 24px; height: 24px; top: 70%; left: 22%; --cross-color: #bbf7d0; }
+        .final-cta-shapes .f-shape-7 { width: 18px; height: 18px; top: 60%; right: 18%; background: #fde68a; transform: rotate(-8deg); }
+        .final-cta-shapes .f-shape-8 { width: 26px; height: 26px; top: 68%; right: 8%; --cross-color: #fbcfe8; transform: rotate(15deg); }
+        .final-cta-shapes .f-shape-9 { width: 18px; height: 18px; top: 40%; left: 4%; --cross-color: #99f6e4; transform: rotate(-20deg); }
+        .final-cta-shapes .f-shape-10 { width: 20px; height: 20px; top: 42%; right: 5%; background: #ddd6fe; transform: rotate(-6deg); }
+
+        .final-cta-content { position: relative; z-index: 1; max-width: 640px; margin: 0 auto; }
+
+        .final-cta-title {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 800;
+            font-size: clamp(2.2em, 4vw, 3.2em);
+            line-height: 1.2;
+            margin: 0;
+            color: #111214;
+        }
+
+        .final-cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #5046e5;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 600;
+            font-size: 1.05em;
+            text-decoration: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            margin-top: 36px;
+            transition: opacity 0.15s ease;
+        }
+
+        .final-cta-button:hover { opacity: 0.88; }
+        .final-cta-button i { font-size: 20px; }
+
+        .is-disabled {
+            pointer-events: none;
+            cursor: default;
+            color: #9a9a9a;
+            background: #e4e4e4;
+            opacity: 0.5;
+            filter: grayscale(100%);
+        }
+        .is-disabled:hover { background: #e4e4e4; }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <span class="shape shape--circle shape-1"></span>
+        <span class="shape shape--square shape-2"></span>
+        <span class="shape shape--cross shape-3"></span>
+        <span class="shape shape--circle shape-4"></span>
+        <span class="shape shape--square shape-5"></span>
+        <span class="shape shape--cross shape-6"></span>
+        <span class="shape shape--circle shape-7"></span>
+        <span class="shape shape--square shape-8"></span>
+
+        <div class="app-header-coffee-wrap">
+            <div class="app-header-coffee-crop">
+                <img class="app-header-coffee" src="/assets/coffee-cup.svg" alt="">
+            </div>
+        </div>
+
+        <nav class="app-nav">
+            <div class="app-nav-left">
+                <a class="app-nav-brand" href="https://nookup.me">
+                    <img src="/assets/favicon.png" alt="">
+                    <span>Nookup</span>
+                </a>
+            </div>
+            <div class="app-nav-right">
+                <a class="app-nav-discord" href="https://discord.gg/kCVUFFcSta" target="_blank" rel="noopener" title="Rejoindre le Discord">
+                    <i class="fa-brands fa-discord"></i>
+                </a>
+            </div>
+
+            <button type="button" id="nav-burger" class="app-nav-burger" aria-label="Ouvrir le menu" aria-expanded="false">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div id="nav-mobile-menu" class="app-nav-mobile-menu">
+                <a class="app-nav-discord app-nav-discord--text" href="https://discord.gg/kCVUFFcSta" target="_blank" rel="noopener">
+                    Notre communauté Discord
+                </a>
+            </div>
+        </nav>
+
+        <div class="app-header-inner">
+            <h1 class="app-header-title">Votre espace cozy</h1>
+            <p class="app-header-subtitle">Découvrez une nouvelle manière d'interagir avec vos communautés : des threads nouvelle génération, pensés pour des échanges plus vivants.</p>
+            <div class="app-header-ctas">
+                <button type="button" class="app-header-cta is-disabled">
+                    Prochainement
+                </button>
+            </div>
+            <div class="app-header-illustration-wrap">
+                <div class="app-header-illustration-crop">
+                    <img class="app-header-illustration" src="/assets/app-skeleton.svg" alt="">
+                </div>
+                <img class="app-header-badge" src="/assets/notification-badge.svg" alt="">
+                <img class="app-header-phone" src="/assets/app-skeleton-mobile.svg" alt="">
+                <svg class="app-header-clover" id="lucky-clover" viewBox="0 0 400 400" width="100%" height="100%" role="img" aria-hidden="true">
+                    <defs>
+                        <g id="single-leaf">
+                            <path d="M 0 0
+                                     C -25 -35, -55 -30, -55 5
+                                     C -55 35, -20 48, 0 65
+                                     C 20 48, 55 35, 55 5
+                                     C 55 -30, 25 -35, 0 0 Z"
+                                  fill="#42cf00"
+                                  stroke="#1d5c00"
+                                  stroke-width="5"
+                                  stroke-linejoin="round"/>
+
+                            <path d="M 0 15 Q -2 35 0 55" fill="none" stroke="#1d5c00" stroke-width="4" stroke-linecap="round"/>
+                        </g>
+                    </defs>
+
+                    <g id="four-leaf-clover" onclick="handleCloverClick()" style="cursor:pointer;">
+                        <path d="M 194 205 Q 175 295 240 345 Q 246 348 251 340 Q 193 290 206 205 Z"
+                              fill="#42cf00"
+                              stroke="#1d5c00"
+                              stroke-width="5"
+                              stroke-linejoin="round"/>
+
+                        <use href="#single-leaf" transform="translate(200, 145) rotate(0)"/>
+                        <use href="#single-leaf" transform="translate(255, 200) rotate(90)"/>
+                        <use href="#single-leaf" transform="translate(200, 255) rotate(180)"/>
+                        <use href="#single-leaf" transform="translate(145, 200) rotate(270)"/>
+
+                        <circle cx="200" cy="200" r="14" fill="#42cf00" stroke="#1d5c00" stroke-width="3"/>
+                    </g>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <section class="app-next-section">
+        <div class="feature-section">
+            <div class="feature-media">
+                <img class="no-clip" src="/assets/post_card.svg" alt="Aperçu d'un fil de posts sur Nookup">
+            </div>
+            <div class="feature-text">
+                <h2 class="feature-title">Des échanges<br>qui prennent<br>leur temps</h2>
+                <p class="feature-desc">Oubliez le flux de messages qui défile sans fin et se perd aussitôt. Chaque post est un espace de discussion indépendant, plus facile à retrouver, plus facile à faire vivre dans la durée.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="feature-section--muted">
+        <svg class="feature-wave" viewBox="0 0 1200 70" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 40 C 150 10, 300 60, 450 45 C 650 25, 750 5, 950 30 C 1050 42, 1150 50, 1200 35 L1200 70 L0 70 Z" fill="#f0f1f3"/>
+        </svg>
+        <div class="muted-shapes">
+            <span class="shape shape--circle m-shape-1"></span>
+            <span class="shape shape--square m-shape-2"></span>
+            <span class="shape shape--cross m-shape-3"></span>
+            <span class="shape shape--circle m-shape-4"></span>
+            <span class="shape shape--square m-shape-5"></span>
+            <span class="shape shape--cross m-shape-6"></span>
+        </div>
+        <div class="feature-section feature-section--reverse">
+            <div class="feature-media">
+                <img class="no-clip" src="/assets/profile-privacy.svg" alt="Aperçu d'un profil Nookup et de son contrôle de confidentialité">
+            </div>
+            <div class="feature-text">
+                <h2 class="feature-title">Votre espace,<br>vos règles</h2>
+                <p class="feature-desc">Définissez vos propres règles de confidentialité et contrôlez qui peut voir vos publications et interagir avec elles.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="app-next-section" style="position: relative;">
+        <svg class="feature-wave" viewBox="0 0 1200 70" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 40 C 150 10, 300 60, 450 45 C 650 25, 750 5, 950 30 C 1050 42, 1150 50, 1200 35 L1200 70 L0 70 Z" fill="#ffffff"/>
+        </svg>
+        <div class="feature-section feature-section--roomy">
+            <div class="feature-media">
+                <img class="no-clip" src="/assets/personnalisation.svg" alt="Aperçu d'une communauté personnalisée sur Nookup">
+            </div>
+            <div class="feature-text">
+                <h2 class="feature-title">Communautés<br>à votre image</h2>
+                <p class="feature-desc">Créez une communauté sur le thème de votre choix, personnalisez sa bannière et son icône, et lancez-la en quelques clics.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="final-cta-section">
+        <svg class="feature-wave" viewBox="0 0 1200 70" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 40 C 150 10, 300 60, 450 45 C 650 25, 750 5, 950 30 C 1050 42, 1150 50, 1200 35 L1200 70 L0 70 Z" fill="#f0f1f3"/>
+        </svg>
+        <div class="final-cta-shapes">
+            <span class="shape shape--square f-shape-1"></span>
+            <span class="shape shape--cross f-shape-2"></span>
+            <span class="shape shape--square f-shape-3"></span>
+            <span class="shape shape--cross f-shape-4"></span>
+            <span class="shape shape--square f-shape-5"></span>
+            <span class="shape shape--cross f-shape-6"></span>
+            <span class="shape shape--square f-shape-7"></span>
+            <span class="shape shape--cross f-shape-8"></span>
+            <span class="shape shape--cross f-shape-9"></span>
+            <span class="shape shape--square f-shape-10"></span>
+        </div>
+        <div class="final-cta-content">
+            <h2 class="final-cta-title">Prêt à commencer ?</h2>
+            <button type="button" class="final-cta-button is-disabled">
+                Prochainement
+            </button>
+        </div>
+    </section>
+
+    <footer class="site-footer">
+        <div class="footer-bottom">
+            © 2026 Nookup. Tous droits réservés.
+        </div>
+    </footer>
+
+    <script>
+        let cloverClickCount = 0;
+        let cloverLastClickAt = 0;
+
+        function handleCloverClick() {
+            const now = Date.now();
+            cloverClickCount = (now - cloverLastClickAt > 1500) ? 1 : cloverClickCount + 1;
+            cloverLastClickAt = now;
+            if (cloverClickCount >= 10) {
+                document.title = "I'm Feeling Lucky - Nookup";
+            }
+        }
+
+        const navBurger = document.getElementById('nav-burger');
+        const navMobileMenu = document.getElementById('nav-mobile-menu');
+
+        function closeNavMenu() {
+            navBurger.classList.remove('is-open');
+            navMobileMenu.classList.remove('is-open');
+            navBurger.setAttribute('aria-expanded', 'false');
+        }
+
+        navBurger.addEventListener('click', () => {
+            const isOpen = navBurger.classList.toggle('is-open');
+            navMobileMenu.classList.toggle('is-open', isOpen);
+            navBurger.setAttribute('aria-expanded', String(isOpen));
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!navBurger.classList.contains('is-open')) return;
+            if (navBurger.contains(event.target) || navMobileMenu.contains(event.target)) return;
+            closeNavMenu();
+        });
+    </script>
+</body>
+</html>

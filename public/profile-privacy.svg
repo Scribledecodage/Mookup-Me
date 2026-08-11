@@ -1,0 +1,34 @@
+<svg width="320" height="260" viewBox="0 0 320 260" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- icône astérisque décorative à côté du cadenas -->
+  <g stroke="#5046e5" stroke-width="8" stroke-linecap="round" transform="translate(255,57)">
+    <line x1="0" y1="-22" x2="0" y2="22"/>
+    <line x1="-19" y1="-11" x2="19" y2="11"/>
+    <line x1="19" y1="-11" x2="-19" y2="11"/>
+  </g>
+
+  <!-- cadenas jaune -->
+  <g transform="translate(90,20)">
+    <!-- anse -->
+    <path d="M14 46 V32 a26 26 0 0 1 52 0 v14"
+          fill="none" stroke="#f5b301" stroke-width="10" stroke-linecap="round"/>
+    <!-- corps -->
+    <rect x="0" y="44" width="80" height="66" rx="12" fill="#fbbf24" stroke="#d97706" stroke-width="2"/>
+    <!-- trou de serrure -->
+    <circle cx="40" cy="72" r="8" fill="#78350f"/>
+    <rect x="36" y="76" width="8" height="16" rx="3" fill="#78350f"/>
+  </g>
+
+  <!-- champ de saisie du mot de passe -->
+  <rect x="40" y="160" width="240" height="52" rx="10" fill="#f4f4f6" stroke="#2c2e33" stroke-width="1.5"/>
+
+  <!-- ronds cachant le mot de passe -->
+  <g fill="#2c2e33">
+    <circle cx="72" cy="186" r="7"/>
+    <circle cx="102" cy="186" r="7"/>
+    <circle cx="132" cy="186" r="7"/>
+    <circle cx="162" cy="186" r="7"/>
+    <circle cx="192" cy="186" r="7"/>
+    <circle cx="222" cy="186" r="7"/>
+  </g>
+</svg>

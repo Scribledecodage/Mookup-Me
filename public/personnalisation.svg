@@ -1,0 +1,92 @@
+<svg width="628" height="338" viewBox="0 0 628 338" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+
+  <defs>
+    <filter id="cardShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- === # décoratif, à moitié caché derrière le coin haut-gauche de la carte === -->
+  <g transform="translate(56,52) rotate(-18)" stroke="#5046e5" stroke-width="11" stroke-linecap="round">
+    <line x1="-16" y1="-35" x2="-23" y2="35"/>
+    <line x1="16" y1="-35" x2="9" y2="35"/>
+    <line x1="-32" y1="-12" x2="29" y2="-12"/>
+    <line x1="-35" y1="15" x2="26" y2="15"/>
+  </g>
+
+  <!-- ===================== CARTE COMMUNAUTÉ (statique, split Voyage / Dev & Tech) ===================== -->
+  <g transform="translate(50,50)">
+    <clipPath id="cardClip">
+      <rect x="0" y="0" width="560" height="270" rx="16"/>
+    </clipPath>
+
+    <g clip-path="url(#cardClip)">
+      <rect x="0" y="0" width="560" height="270" fill="#3a3e5c"/>
+
+      <!-- === THEME 1 : Voyage (base) === -->
+      <g>
+        <defs>
+          <linearGradient id="bannerGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#bbf7d0"/>
+            <stop offset="100%" stop-color="#86efac"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="560" height="103" fill="url(#bannerGrad1)"/>
+        <rect x="22" y="70" width="66" height="66" rx="16" fill="#3a3e5c"/>
+        <rect x="25" y="73" width="60" height="60" rx="13" fill="#bbf7d0"/>
+        <g transform="translate(55,104)" stroke="#16a34a" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M-15 7 L-6 -8 L1 0 L9 -12 L17 7 Z" fill="#16a34a"/>
+          <circle cx="10" cy="-15" r="4.5" fill="#fde68a" stroke="none"/>
+        </g>
+        <rect x="100" y="91" width="170" height="44" rx="14" fill="#3a3e5c"/>
+        <text x="118" y="119" font-size="22" font-weight="800" fill="#eceeef">Voyage</text>
+        <text x="22" y="170" font-size="12" font-weight="bold" letter-spacing="1" fill="#787c84">À PROPOS</text>
+        <text x="22" y="195" font-size="17" fill="#b0b3ba">
+          <tspan x="22" dy="0">Le rendez-vous des globe-trotteurs pour partager</tspan>
+          <tspan x="22" dy="25">leurs plus belles échappées.</tspan>
+        </text>
+      </g>
+
+      <!-- === THEME 3 : Dev & Tech (révélé sur la moitié diagonale) === -->
+      <defs>
+        <linearGradient id="wipeGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0" stop-color="#ffffff"/>
+          <stop offset="0.5" stop-color="#ffffff"/>
+          <stop offset="0.5" stop-color="#000000"/>
+          <stop offset="1" stop-color="#000000"/>
+        </linearGradient>
+        <mask id="mask3" maskUnits="objectBoundingBox">
+          <rect x="0" y="0" width="560" height="270" fill="url(#wipeGrad3)"/>
+        </mask>
+      </defs>
+      <g mask="url(#mask3)">
+        <rect x="0" y="0" width="560" height="270" fill="#3a3e5c"/>
+        <defs>
+          <linearGradient id="bannerGrad3" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#c7d2fe"/>
+            <stop offset="100%" stop-color="#a5b4fc"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="560" height="103" fill="url(#bannerGrad3)"/>
+        <rect x="22" y="70" width="66" height="66" rx="16" fill="#3a3e5c"/>
+        <rect x="25" y="73" width="60" height="60" rx="13" fill="#c7d2fe"/>
+        <text x="55" y="112" font-size="23" font-weight="800" fill="#4338ca" text-anchor="middle">&lt;/&gt;</text>
+        <rect x="100" y="91" width="170" height="44" rx="14" fill="#3a3e5c"/>
+        <text x="118" y="119" font-size="22" font-weight="800" fill="#eceeef">Dev &amp; Tech</text>
+        <text x="22" y="170" font-size="12" font-weight="bold" letter-spacing="1" fill="#787c84">À PROPOS</text>
+        <text x="22" y="195" font-size="17" fill="#b0b3ba">
+          <tspan x="22" dy="0">Discussions, astuces et projets pour les curieux</tspan>
+          <tspan x="22" dy="25">de tech et de code.</tspan>
+        </text>
+      </g>
+
+      <!-- === LIGNE : trait diagonal figé pile entre les deux cartes === -->
+      <g transform="translate(280,135)">
+        <g transform="rotate(64)">
+          <rect x="-3.5" y="-500" width="7" height="1000" fill="#ffffff" opacity="0.6"/>
+          <rect x="-18" y="-500" width="36" height="1000" fill="#ffffff" opacity="0.12"/>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

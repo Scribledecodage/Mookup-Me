@@ -1,0 +1,43 @@
+'use client';
+
+import { Bug, Code, Info, Key } from '@phosphor-icons/react';
+
+function ComingSoonCard({ icon: Icon, title, description }) {
+  return (
+    <section className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 opacity-80">
+      <Icon size={24} className="mt-0.5 flex-shrink-0 text-gray-400" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-[15px] font-semibold text-gray-800">{title}</h3>
+          <span className="whitespace-nowrap text-[11px] text-gray-400">Bientôt disponible</span>
+        </div>
+        <p className="mt-1 text-[13px] leading-5 text-gray-500">{description}</p>
+      </div>
+    </section>
+  );
+}
+
+export default function DeveloperPage() {
+  return (
+    <div className="p-6 pb-12 w-full max-w-lg">
+      <div className="mb-6">
+        <h2 className="text-2xl font-semibold text-gray-900 mb-1">Développeur</h2>
+        <p className="text-gray-500 text-[15px]">Des outils avancés pour personnaliser et diagnostiquer Mookup.</p>
+      </div>
+
+      <div className="space-y-3">
+        <ComingSoonCard icon={Code} title="Mode développeur" description="Affichez des informations techniques supplémentaires dans l’application." />
+        <ComingSoonCard icon={Key} title="Clés et intégrations" description="Gérez les accès API et les services connectés à Mookup." />
+        <ComingSoonCard icon={Bug} title="Outils de diagnostic" description="Consultez les journaux et vérifiez les services de l’application." />
+      </div>
+
+      <div className="mt-4 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4">
+        <Info size={22} className="mt-0.5 flex-shrink-0 text-blue-500" />
+        <div>
+          <p className="text-[14px] font-semibold text-blue-800">Fonctionnalité en cours de développement</p>
+          <p className="mt-1 text-[12px] leading-5 text-blue-700">Les outils développeur seront activés dans une prochaine version.</p>
+        </div>
+      </div>
+    </div>
+  );
+}

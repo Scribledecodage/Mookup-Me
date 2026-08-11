@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lecteur média</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #000; }
+    body { display: grid; place-items: center; color: #fff; font-family: system-ui, sans-serif; }
+    .loading { padding: 24px; text-align: center; }
+  </style>
+</head>
+<body>
+  <p class="loading">Chargement du média…</p>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const key = params.get('key');
+    const content = key ? window.localStorage.getItem(key) : params.get('content');
+    if (content) {
+      // Remplace complètement l’écran de chargement pour éviter qu’il reste
+      // au-dessus du lecteur en mode normal.
+      const parsed = new DOMParser().parseFromString(content, 'text/html');
+      document.documentElement.innerHTML = parsed.documentElement.innerHTML;
+      document.querySelectorAll('script').forEach((oldScript) => {
+        const newScript = document.createElement('script');
+        for (const attribute of oldScript.attributes) newScript.setAttribute(attribute.name, attribute.value);
+        newScript.textContent = oldScript.textContent;
+        oldScript.replaceWith(newScript);
+      });
+    } else {
+      document.querySelector('.loading').textContent = 'Média introuvable.';
+    }
+  </script>
+</body>
+</html>
