@@ -38,8 +38,11 @@ fs.cpSync(path.join(root, 'public', 'Logo.png'), path.join(stagingDir, 'public',
 fs.cpSync(path.join(root, 'public', 'Logo.ico'), path.join(stagingDir, 'public', 'Logo.ico'));
 
 const updater = rootPackage.dependencies['electron-updater'];
+const windowsActivity = rootPackage.dependencies['get-windows'];
 if (!updater) throw new Error('electron-updater doit être une dépendance de production.');
+if (!windowsActivity) throw new Error('get-windows doit être une dépendance de production.');
 collectDependencies('electron-updater');
+collectDependencies('get-windows');
 for (const dependency of dependencyNames) copyDependency(dependency);
 
 fs.writeFileSync(
@@ -50,7 +53,10 @@ fs.writeFileSync(
     description: rootPackage.description,
     author: rootPackage.author,
     main: 'main.cjs',
-    dependencies: { 'electron-updater': updater },
+    dependencies: {
+      'electron-updater': updater,
+      'get-windows': windowsActivity,
+    },
   }, null, 2)}\n`,
 );
 
