@@ -22,6 +22,7 @@ interface Window {
     platform: string;
     electronVersion: string;
     getUpdateDebugHistory?: () => Promise<ElectronUpdateDebugEntry[]>;
+    setRecentContacts?: (contacts: Array<{ chatId: string; uid: string; displayName: string; photoURL?: string | null; isBot: boolean }>) => void;
     onUpdateStatus?: (listener: (status: ElectronUpdateStatus) => void) => () => void;
     onUpdateDebug?: (listener: (entry: ElectronUpdateDebugEntry) => void) => () => void;
   };

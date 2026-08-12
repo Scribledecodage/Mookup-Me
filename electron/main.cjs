@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, Menu, session, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, Menu, session, shell, ipcMain, nativeImage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -24,15 +24,32 @@ const TASK_ROUTES = Object.freeze({
   'manage-account': '/profil/infos',
   'view-statuses': '/statuts',
   'open-calls': '/appels',
+  'open-recent-contact': '/discussions/privee',
 });
 
+function getTaskArgument(argv, name) {
+  const argument = argv.find(value => value.startsWith(`${name}=`));
+  return argument?.slice(name.length + 1) || null;
+}
+
 function getTaskAction(argv) {
-  const taskArgument = argv.find((argument) => argument.startsWith('--task='));
-  const action = taskArgument?.slice('--task='.length);
+  const action = getTaskArgument(argv, '--task');
   return action && Object.prototype.hasOwnProperty.call(TASK_ROUTES, action) ? action : null;
 }
 
-function getTaskUrl(action) {
+function getTaskUrl(action, argv = []) {
+  if (action === 'open-recent-contact') {
+    const encodedChatId = getTaskArgument(argv, '--chat');
+    if (encodedChatId) {
+      let chatId = encodedChatId;
+      try {
+        chatId = decodeURIComponent(encodedChatId);
+      } catch {
+        // Garder l’identifiant brut si l’argument n’est pas encodé.
+      }
+      return new URL(`/discussions/privee/${encodeURIComponent(chatId)}`, startUrl).toString();
+    }
+  }
   if (!action) return startUrl;
   return new URL(TASK_ROUTES[action], startUrl).toString();
 }
@@ -287,20 +304,66 @@ function showAboutDialog() {
   });
 }
 
-function configureWindowsJumpList() {
+async function cacheContactIcon(contact, index) {
+  if (!contact?.photoURL || typeof contact.photoURL !== 'string') return null;
+
+  try {
+    const response = await fetch(contact.photoURL, { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) return null;
+    const image = nativeImage.createFromBuffer(Buffer.from(await response.arrayBuffer()));
+    if (image.isEmpty()) return null;
+
+    const png = image.toPNG();
+    const ico = Buffer.alloc(22 + png.length);
+    ico.writeUInt16LE(0, 0);
+    ico.writeUInt16LE(1, 2);
+    ico.writeUInt16LE(1, 4);
+    ico.writeUInt8(0, 6);
+    ico.writeUInt8(0, 7);
+    ico.writeUInt8(0, 8);
+    ico.writeUInt8(0, 9);
+    ico.writeUInt16LE(1, 10);
+    ico.writeUInt16LE(32, 12);
+    ico.writeUInt32LE(png.length, 14);
+    ico.writeUInt32LE(22, 18);
+    png.copy(ico, 22);
+
+    const iconDirectory = path.join(app.getPath('userData'), 'recent-contact-icons');
+    fs.mkdirSync(iconDirectory, { recursive: true });
+    const iconPath = path.join(iconDirectory, `contact-${index}.ico`);
+    fs.writeFileSync(iconPath, ico);
+    return iconPath;
+  } catch (error) {
+    console.warn('[Jump List] Avatar récent indisponible:', error.message);
+    return null;
+  }
+}
+
+async function configureWindowsJumpList(recentContacts = []) {
   if (process.platform !== 'win32' || !app.isPackaged) return;
 
-  const createTask = (title, description, action) => ({
+  const createTask = (title, description, action, extraArgument = '', iconPath = process.execPath) => ({
     program: process.execPath,
-    arguments: `--task=${action}`,
-    iconPath: process.execPath,
-    iconIndex: 0,
+    arguments: [`--task=${action}`, extraArgument].filter(Boolean).join(' '),
+    iconPath,
+    iconIndex: iconPath === process.execPath ? 0 : 0,
     title,
     description,
   });
 
+  const recentTasks = Array.isArray(recentContacts)
+    ? await Promise.all(recentContacts.slice(0, 2).map(async (contact, index) => createTask(
+      `Message à ${String(contact?.displayName || (contact?.isBot ? 'Bot' : 'ce contact')).slice(0, 45)}`,
+      contact?.isBot ? 'Dernier bot utilisé' : 'Dernière personne contactée',
+      'open-recent-contact',
+      `--chat=${encodeURIComponent(String(contact?.chatId || ''))}`,
+      await cacheContactIcon(contact, index) || process.execPath,
+    )))
+    : [];
+
   try {
     app.setUserTasks([
+      ...recentTasks,
       createTask('Envoyer un message', 'Ouvrir directement la messagerie', 'send-message'),
       createTask('Créer un statut', 'Publier une nouvelle mise à jour', 'create-status'),
       createTask('Créer un groupe', 'Créer un nouveau groupe de discussion', 'create-group'),
@@ -312,6 +375,10 @@ function configureWindowsJumpList() {
     console.error('[Jump List] Configuration impossible:', error);
   }
 }
+
+ipcMain.on('electron-recent-contacts', (_event, contacts) => {
+  void configureWindowsJumpList(contacts);
+});
 
 function configureApplicationMenu() {
   const template = [
@@ -465,7 +532,7 @@ function createMainWindow() {
   });
 
   const initialTaskAction = getTaskAction(process.argv);
-  const initialUrl = getTaskUrl(initialTaskAction);
+  const initialUrl = getTaskUrl(initialTaskAction, process.argv);
   void mainWindow.loadURL(initialUrl).catch((error) => {
     console.error(`Échec du chargement de ${initialUrl}:`, error);
     mainWindow?.show();
@@ -484,7 +551,7 @@ if (!gotSingleInstanceLock) {
 
     const taskAction = getTaskAction(commandLine);
     if (taskAction) {
-      void mainWindow.loadURL(getTaskUrl(taskAction)).catch((error) => {
+      void mainWindow.loadURL(getTaskUrl(taskAction, commandLine)).catch((error) => {
         console.error(`[Jump List] Échec de l’action ${taskAction}:`, error);
       });
     }

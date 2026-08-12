@@ -186,6 +186,26 @@ export default function HomeView({ user, activeTab: controlledActiveTab, onSelec
     return () => unsubscribe();
   }, [user]);
 
+  // Transmettre les deux dernières discussions à la Jump List Electron Windows.
+  useEffect(() => {
+    const recentContacts = privateChats.slice(0, 2).map(chat => {
+      const isBot = Boolean(chat.isBotChat || chat.botId);
+      const otherUserId = isBot
+        ? `bot-${chat.botId || chat.id}`
+        : (chat.participants || []).find((id: string) => id !== user?.uid) || '';
+      const otherUser = allUsers.find(candidate => candidate.id === otherUserId || candidate.uid === otherUserId);
+      return {
+        chatId: chat.id,
+        uid: otherUserId,
+        displayName: isBot ? chat.botName || 'Bot' : otherUser?.displayName || otherUser?.nickname || 'Anonyme',
+        photoURL: isBot ? chat.botPhotoURL || null : otherUser?.photoURL || null,
+        isBot,
+      };
+    });
+
+    window.electronAPI?.setRecentContacts?.(recentContacts);
+  }, [privateChats, allUsers, user?.uid]);
+
   // Utiliser une ref pour selectedGroupId pour éviter de re-souscrire
   const selectedGroupIdRef = useRef(selectedGroupId);
   const messagesSnapshotRef = useRef<any[]>([]);
