@@ -50,4 +50,7 @@ jobs:
         run: npm run electron:publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # electron-builder signe automatiquement Windows dès que ces secrets
+          # contiennent un certificat PFX/PKCS12 encodé en base64 et son mot de passe.
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}

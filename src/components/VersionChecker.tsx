@@ -14,7 +14,7 @@ export default function VersionChecker() {
     setIsChecking(true);
     try {
       if (!Capacitor.isNativePlatform() && window.location.hostname === 'localhost') return;
-      const response = await fetch('/version.json', { cache: 'no-cache' });
+      const response = await fetch(`/version.json?check=${Date.now()}`, { cache: 'no-store' });
       if (!response.ok) return;
       const data = await response.json();
       if (!data?.version) return;
@@ -33,11 +33,18 @@ export default function VersionChecker() {
   }, [isChecking]);
 
   useEffect(() => {
+    const unsubscribe = window.electronAPI?.onUpdateDebug?.((entry) => {
+      // Ces messages apparaissent dans les DevTools du renderer pendant le
+      // téléchargement. Le journal fichier les conserve quand Electron se ferme.
+      console.info(`[Auto-update] ${entry.event}`, entry.details || {});
+    });
+
     const t = setTimeout(checkVersion, 2000);
     const onFocus = () => checkVersion();
     window.addEventListener('focus', onFocus);
     const interval = setInterval(checkVersion, 10 * 60 * 1000);
     return () => {
+      unsubscribe?.();
       clearTimeout(t);
       window.removeEventListener('focus', onFocus);
       clearInterval(interval);
@@ -56,16 +63,17 @@ export default function VersionChecker() {
           if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
       }
-      const res = await fetch('/version.json', { cache: 'no-cache' });
+      const res = await fetch(`/version.json?check=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
       localStorage.setItem('app_version', data.version);
       if ('caches' in window) {
         const keys = await caches.keys();
         await Promise.all(keys.map(k => caches.delete(k)));
       }
-      const url = new URL(window.location.origin);
-      url.searchParams.set('upd', data.version);
-      window.location.href = url.toString();
+      // Le cache est déjà vidé : on recharge l’URL propre sans exposer la version.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('upd');
+      window.location.replace(url.toString());
     } catch {
       window.location.reload();
     }

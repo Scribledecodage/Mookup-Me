@@ -1,6 +1,6 @@
 {
   "name": "mookup",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "description": "Mookup desktop application",
   "author": "Team Mookup",
   "private": true,
@@ -107,6 +107,8 @@
     ],
     "icon": "Logo.png",
     "win": {
+      "icon": "Logo.png",
+      "signAndEditExecutable": true,
       "signtoolOptions": {
         "publisherName": "Team Mookup"
       },
@@ -120,6 +122,9 @@
     },
     "nsis": {
       "oneClick": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Mookup",
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
       "deleteAppDataOnUninstall": false

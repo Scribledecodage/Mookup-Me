@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, Menu, session, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const fs = require('node:fs');
 const path = require('node:path');
 
 const APP_ID = 'com.mookup.app';
@@ -41,6 +42,67 @@ let updateCheckTimer = null;
 let updateInstallTimer = null;
 let isInstallingUpdate = false;
 let isQuitting = false;
+const UPDATE_STATE_FILE = 'pending-update.json';
+
+function getUpdateLogPath() {
+  const logDirectory = app.getPath('logs');
+  fs.mkdirSync(logDirectory, { recursive: true });
+  return path.join(logDirectory, 'updater.log');
+}
+
+function writeUpdateLog(event, details = {}) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    event,
+    details,
+  };
+
+  try {
+    fs.appendFileSync(getUpdateLogPath(), `${JSON.stringify(entry)}\\n`, 'utf8');
+  } catch (error) {
+    console.error('[Auto-update] Impossible d’écrire le journal:', error);
+  }
+
+  console.info(`[Auto-update] ${event}`, details);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('electron-update-debug', entry);
+  }
+  return entry;
+}
+
+function getUpdateStatePath() {
+  return path.join(app.getPath('userData'), UPDATE_STATE_FILE);
+}
+
+function savePendingUpdate(info) {
+  try {
+    fs.writeFileSync(getUpdateStatePath(), JSON.stringify({
+      version: info.version,
+      downloadedAt: new Date().toISOString(),
+    }, null, 2));
+  } catch (error) {
+    writeUpdateLog('pending-state-write-failed', { message: error.message });
+  }
+}
+
+function recordSuccessfulStart() {
+  try {
+    if (!fs.existsSync(getUpdateStatePath())) return;
+    const pending = JSON.parse(fs.readFileSync(getUpdateStatePath(), 'utf8'));
+    writeUpdateLog('application-restarted-after-update', {
+      version: app.getVersion(),
+      expectedVersion: pending.version,
+      downloadedAt: pending.downloadedAt,
+    });
+    fs.rmSync(getUpdateStatePath(), { force: true });
+  } catch (error) {
+    writeUpdateLog('startup-state-read-failed', { message: error.message });
+  }
+}
+
+function openUpdateLog() {
+  void shell.openPath(getUpdateLogPath());
+}
 
 function getAllowedOrigin() {
   try {
@@ -81,17 +143,19 @@ function configureAutoUpdater() {
   autoUpdater.allowPrerelease = process.env.MOOKUP_ALLOW_PRERELEASE === '1';
   autoUpdater.fullChangelog = true;
   autoUpdater.logger = {
-    info: (message) => console.info('[Auto-update]', message),
-    warn: (message) => console.warn('[Auto-update]', message),
-    error: (message) => console.error('[Auto-update]', message),
-    debug: (message) => console.debug('[Auto-update]', message),
+    info: (message) => writeUpdateLog('electron-updater.info', { message: String(message) }),
+    warn: (message) => writeUpdateLog('electron-updater.warn', { message: String(message) }),
+    error: (message) => writeUpdateLog('electron-updater.error', { message: String(message) }),
+    debug: (message) => writeUpdateLog('electron-updater.debug', { message: String(message) }),
   };
 
   autoUpdater.on('checking-for-update', () => {
+    writeUpdateLog('checking-for-update');
     sendUpdateStatus('checking');
   });
 
   autoUpdater.on('update-available', (info) => {
+    writeUpdateLog('update-available', { version: info.version });
     setUpdateTitle(`Mookup — téléchargement de la mise à jour ${info.version}`);
     sendUpdateStatus('available', { version: info.version });
   });
@@ -103,6 +167,9 @@ function configureAutoUpdater() {
 
   autoUpdater.on('download-progress', (progress) => {
     const percent = Math.round(progress.percent * 10) / 10;
+    if (percent === 100 || percent === 0) {
+      writeUpdateLog('download-progress', { percent, transferred: progress.transferred, total: progress.total });
+    }
     setUpdateTitle(`Mookup — mise à jour ${percent}%`);
     sendUpdateStatus('downloading', {
       percent,
@@ -113,6 +180,8 @@ function configureAutoUpdater() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
+    writeUpdateLog('update-downloaded', { version: info.version });
+    savePendingUpdate(info);
     setUpdateTitle(`Mookup — redémarrage pour la version ${info.version}`);
     sendUpdateStatus('downloaded', { version: info.version });
 
@@ -122,13 +191,13 @@ function configureAutoUpdater() {
     updateInstallTimer = setTimeout(() => {
       if (isInstallingUpdate || isQuitting) return;
       isInstallingUpdate = true;
-      console.info(`[Auto-update] Installation de ${info.version}...`);
+      writeUpdateLog('installer-launch-requested', { version: info.version, silent: true, forceRunAfter: true });
 
       try {
         // Installation NSIS silencieuse, puis redémarrage forcé de Mookup.
         autoUpdater.quitAndInstall(true, true);
       } catch (error) {
-        console.error('[Auto-update] Impossible de lancer l’installeur:', error);
+        writeUpdateLog('installer-launch-failed', { message: error.message, stack: error.stack });
         isInstallingUpdate = false;
         sendUpdateStatus('error', { message: error.message });
         return;
@@ -138,15 +207,20 @@ function configureAutoUpdater() {
       // après le lancement de l’installeur, fermer quand même l’ancien processus.
       setTimeout(() => {
         if (!isQuitting) {
-          console.warn('[Auto-update] Electron ne s’est pas fermé, fermeture forcée.');
+          writeUpdateLog('forced-process-exit', { reason: 'Electron did not quit after installer launch' });
           app.exit(0);
         }
       }, 3000);
     }, UPDATE_INSTALL_DELAY_MS);
   });
 
+  autoUpdater.on('before-quit-for-update', () => {
+    writeUpdateLog('before-quit-for-update');
+    isQuitting = true;
+  });
+
   autoUpdater.on('error', (error) => {
-    console.error('[Auto-update] Échec:', error);
+    writeUpdateLog('update-error', { message: error.message, stack: error.stack });
     setUpdateTitle('Mookup');
     sendUpdateStatus('error', { message: error.message });
   });
@@ -156,7 +230,7 @@ function configureAutoUpdater() {
     try {
       await autoUpdater.checkForUpdates();
     } catch (error) {
-      console.error('[Auto-update] Vérification impossible:', error.message);
+      writeUpdateLog('update-check-failed', { message: error.message });
     }
   };
 
@@ -259,6 +333,10 @@ function configureApplicationMenu() {
         {
           label: 'À propos de Mookup',
           click: () => showAboutDialog(),
+        },
+        {
+          label: 'Ouvrir le journal des mises à jour',
+          click: () => openUpdateLog(),
         },
       ],
     },
@@ -388,12 +466,19 @@ if (!gotSingleInstanceLock) {
   });
 
   app.on('before-quit', () => {
+    writeUpdateLog('before-quit', { installingUpdate: isInstallingUpdate });
     isQuitting = true;
     if (updateCheckTimer) clearInterval(updateCheckTimer);
     if (updateInstallTimer) clearTimeout(updateInstallTimer);
   });
 
   app.whenReady().then(() => {
+    recordSuccessfulStart();
+    writeUpdateLog('application-started', {
+      version: app.getVersion(),
+      packaged: app.isPackaged,
+      platform: process.platform,
+    });
     configureWindowsJumpList();
     configureApplicationMenu();
     configureSessionPermissions();

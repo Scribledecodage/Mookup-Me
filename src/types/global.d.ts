@@ -1,4 +1,10 @@
 // Extension du type Window pour les intégrations natives
+interface ElectronUpdateDebugEntry {
+  timestamp: string;
+  event: string;
+  details?: Record<string, unknown>;
+}
+
 interface ElectronUpdateStatus {
   status: 'checking' | 'available' | 'up-to-date' | 'downloading' | 'downloaded' | 'error';
   version?: string;
@@ -16,6 +22,7 @@ interface Window {
     platform: string;
     electronVersion: string;
     onUpdateStatus?: (listener: (status: ElectronUpdateStatus) => void) => () => void;
+    onUpdateDebug?: (listener: (entry: ElectronUpdateDebugEntry) => void) => () => void;
   };
   /** Positionné à true par un gestionnaire interne quand il intercepte l'event app_back. */
   _appBackHandled?: boolean;

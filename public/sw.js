@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mookup-v2';
+const CACHE_NAME = 'mookup-v3';
 
 // Fichiers à mettre en cache immédiatement pour permettre un premier fallback hors ligne.
 const ASSETS_TO_CACHE = [
@@ -51,6 +51,10 @@ self.addEventListener('fetch', (event) => {
   // Laisser les navigations HTML à Vercel/Next.js : une réponse 503 fabriquée
   // par le Service Worker masque la vraie réponse réseau et bloque Electron.
   if (request.mode === 'navigate') return;
+
+  // Les API doivent toujours recevoir la vraie réponse serveur : une réponse
+  // 503 fabriquée par le Service Worker masque les erreurs Vercel/GitHub.
+  if (url.includes('/api/')) return;
 
   // Ne jamais intercepter les requêtes Next.js/HMR/webpack.
   if (

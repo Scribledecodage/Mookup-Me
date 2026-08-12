@@ -11,4 +11,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('electron-update-status', handler);
     return () => ipcRenderer.removeListener('electron-update-status', handler);
   },
+  onUpdateDebug: (listener) => {
+    if (typeof listener !== 'function') return () => {};
+
+    const handler = (_event, entry) => listener(entry);
+    ipcRenderer.on('electron-update-debug', handler);
+    return () => ipcRenderer.removeListener('electron-update-debug', handler);
+  },
 });
