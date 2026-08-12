@@ -1,0 +1,29 @@
+# Local dependencies and generated output
+node_modules
+.next
+out
+dist
+.electron-app
+
+# Native/mobile packaging is not part of the Vercel deployment
+android
+electron
+assets
+
+# Local tooling and repository metadata
+.git
+.vercel
+.firebase
+.freebuff
+.idea
+
+# Local secrets and signing material
+.env*
+*.pem
+*.jks
+
+# Logs and local exports
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+scripts/export

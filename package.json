@@ -1,8 +1,8 @@
 {
   "name": "mookup",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Mookup desktop application",
-  "author": "Scribledecodage",
+  "author": "Team Mookup",
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
@@ -107,6 +107,9 @@
     ],
     "icon": "Logo.png",
     "win": {
+      "signtoolOptions": {
+        "publisherName": "Team Mookup"
+      },
       "target": [
         {
           "target": "nsis",
