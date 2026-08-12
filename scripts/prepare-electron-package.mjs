@@ -35,6 +35,7 @@ fs.cpSync(path.join(root, 'electron', 'main.cjs'), path.join(stagingDir, 'main.c
 fs.cpSync(path.join(root, 'electron', 'preload.cjs'), path.join(stagingDir, 'preload.cjs'));
 fs.mkdirSync(path.join(stagingDir, 'public'), { recursive: true });
 fs.cpSync(path.join(root, 'public', 'Logo.png'), path.join(stagingDir, 'public', 'Logo.png'));
+fs.cpSync(path.join(root, 'public', 'Logo.ico'), path.join(stagingDir, 'public', 'Logo.ico'));
 
 const updater = rootPackage.dependencies['electron-updater'];
 if (!updater) throw new Error('electron-updater doit être une dépendance de production.');

@@ -1,6 +1,6 @@
 {
   "name": "mookup",
-  "version": "2.0.11",
+  "version": "2.0.12",
   "description": "Mookup desktop application",
   "author": "Team Mookup",
   "private": true,
@@ -107,7 +107,7 @@
     ],
     "icon": "Logo.png",
     "win": {
-      "icon": "Logo.png",
+      "icon": "Logo.ico",
       "signAndEditExecutable": true,
       "signtoolOptions": {
         "publisherName": "Team Mookup"

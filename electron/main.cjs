@@ -365,9 +365,10 @@ function configureSessionPermissions() {
 }
 
 function createMainWindow() {
+  const iconFile = process.platform === 'win32' ? 'Logo.ico' : 'Logo.png';
   const iconPath = app.isPackaged
-    ? path.join(__dirname, 'public', 'Logo.png')
-    : path.join(__dirname, '..', 'public', 'Logo.png');
+    ? path.join(__dirname, 'public', iconFile)
+    : path.join(__dirname, '..', 'public', iconFile);
 
   mainWindow = new BrowserWindow({
     width: 1440,
