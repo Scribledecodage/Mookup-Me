@@ -48,6 +48,10 @@ self.addEventListener('fetch', (event) => {
   // Le Service Worker ne doit jamais intercepter les écritures ou les flux temps réel.
   if (request.method !== 'GET') return;
 
+  // Laisser les navigations HTML à Vercel/Next.js : une réponse 503 fabriquée
+  // par le Service Worker masque la vraie réponse réseau et bloque Electron.
+  if (request.mode === 'navigate') return;
+
   // Ne jamais intercepter les requêtes Next.js/HMR/webpack.
   if (
     url.includes('/_next/') ||
@@ -83,18 +87,10 @@ self.addEventListener('fetch', (event) => {
 
   if (isLocal) return;
 
-  const isNavigation = request.mode === 'navigate'
-    || request.headers.get('accept')?.includes('text/html');
-
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
-
-      return fetch(request).catch(() => (
-        isNavigation
-          ? caches.match('/').then((fallback) => fallback || offlineResponse())
-          : offlineResponse()
-      ));
+      return fetch(request).catch(() => offlineResponse());
     })
   );
 });

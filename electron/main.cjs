@@ -77,6 +77,7 @@ function configureAutoUpdater() {
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoRunAppAfterInstall = true;
   autoUpdater.allowPrerelease = process.env.MOOKUP_ALLOW_PRERELEASE === '1';
   autoUpdater.fullChangelog = true;
   autoUpdater.logger = {
@@ -115,12 +116,32 @@ function configureAutoUpdater() {
     setUpdateTitle(`Mookup — redémarrage pour la version ${info.version}`);
     sendUpdateStatus('downloaded', { version: info.version });
 
-    // Installation immédiate : les données de l'utilisateur sont dans le site
-    // distant, et autoInstallOnAppQuit couvre aussi une fermeture manuelle.
+    // L’installeur NSIS doit être lancé pendant que l’application est encore
+    // ouverte, puis Electron doit quitter pour libérer les fichiers Windows.
+    if (updateInstallTimer) clearTimeout(updateInstallTimer);
     updateInstallTimer = setTimeout(() => {
       if (isInstallingUpdate || isQuitting) return;
       isInstallingUpdate = true;
-      autoUpdater.quitAndInstall(false, true);
+      console.info(`[Auto-update] Installation de ${info.version}...`);
+
+      try {
+        // Installation NSIS silencieuse, puis redémarrage forcé de Mookup.
+        autoUpdater.quitAndInstall(true, true);
+      } catch (error) {
+        console.error('[Auto-update] Impossible de lancer l’installeur:', error);
+        isInstallingUpdate = false;
+        sendUpdateStatus('error', { message: error.message });
+        return;
+      }
+
+      // Sécurité : si un antivirus ou Windows empêche Electron de quitter
+      // après le lancement de l’installeur, fermer quand même l’ancien processus.
+      setTimeout(() => {
+        if (!isQuitting) {
+          console.warn('[Auto-update] Electron ne s’est pas fermé, fermeture forcée.');
+          app.exit(0);
+        }
+      }, 3000);
     }, UPDATE_INSTALL_DELAY_MS);
   });
 
