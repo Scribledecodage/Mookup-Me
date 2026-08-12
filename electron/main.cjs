@@ -16,6 +16,26 @@ const PRODUCTION_URL = process.env.MOOKUP_APP_URL?.trim() || DEFAULT_PRODUCTION_
 const startUrl = process.env.MOOKUP_ELECTRON_URL?.trim()
   || (isDevelopment ? 'http://localhost:3000' : PRODUCTION_URL);
 
+const TASK_ROUTES = Object.freeze({
+  'send-message': '/accueil',
+  'create-status': '/statuts/creer/texte',
+  'create-group': '/accueil?desktopAction=create-group',
+  'manage-account': '/profil/infos',
+  'view-statuses': '/statuts',
+  'open-calls': '/appels',
+});
+
+function getTaskAction(argv) {
+  const taskArgument = argv.find((argument) => argument.startsWith('--task='));
+  const action = taskArgument?.slice('--task='.length);
+  return action && Object.prototype.hasOwnProperty.call(TASK_ROUTES, action) ? action : null;
+}
+
+function getTaskUrl(action) {
+  if (!action) return startUrl;
+  return new URL(TASK_ROUTES[action], startUrl).toString();
+}
+
 let mainWindow = null;
 let updateCheckTimer = null;
 let updateInstallTimer = null;
@@ -142,6 +162,32 @@ function showAboutDialog() {
     ].join('\\n'),
     buttons: ['OK'],
   });
+}
+
+function configureWindowsJumpList() {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+
+  const createTask = (title, description, action) => ({
+    program: process.execPath,
+    arguments: `--task=${action}`,
+    iconPath: process.execPath,
+    iconIndex: 0,
+    title,
+    description,
+  });
+
+  try {
+    app.setUserTasks([
+      createTask('Envoyer un message', 'Ouvrir directement la messagerie', 'send-message'),
+      createTask('Créer un statut', 'Publier une nouvelle mise à jour', 'create-status'),
+      createTask('Créer un groupe', 'Créer un nouveau groupe de discussion', 'create-group'),
+      createTask('Gérer mon compte', 'Ouvrir les paramètres du profil', 'manage-account'),
+      createTask('Voir les statuts', 'Consulter les statuts récents', 'view-statuses'),
+      createTask('Ouvrir les appels', 'Accéder à la section des appels', 'open-calls'),
+    ]);
+  } catch (error) {
+    console.error('[Jump List] Configuration impossible:', error);
+  }
 }
 
 function configureApplicationMenu() {
@@ -290,8 +336,10 @@ function createMainWindow() {
     mainWindow?.show();
   });
 
-  void mainWindow.loadURL(startUrl).catch((error) => {
-    console.error(`Échec du chargement de ${startUrl}:`, error);
+  const initialTaskAction = getTaskAction(process.argv);
+  const initialUrl = getTaskUrl(initialTaskAction);
+  void mainWindow.loadURL(initialUrl).catch((error) => {
+    console.error(`Échec du chargement de ${initialUrl}:`, error);
     mainWindow?.show();
   });
 }
@@ -303,8 +351,16 @@ if (!gotSingleInstanceLock) {
 } else {
   app.setAppUserModelId(APP_ID);
 
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, commandLine) => {
     if (!mainWindow) return;
+
+    const taskAction = getTaskAction(commandLine);
+    if (taskAction) {
+      void mainWindow.loadURL(getTaskUrl(taskAction)).catch((error) => {
+        console.error(`[Jump List] Échec de l’action ${taskAction}:`, error);
+      });
+    }
+
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
@@ -317,6 +373,7 @@ if (!gotSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
+    configureWindowsJumpList();
     configureApplicationMenu();
     configureSessionPermissions();
     createMainWindow();

@@ -208,6 +208,21 @@ function WelcomePanel() {
 
 export default function Home() {
   const [user, loading] = useAuthState(auth);
+  // Les actions de la Jump List Windows arrivent dans l’URL de l’application.
+  // Le groupe est un panneau interne : on transmet donc une fois l’action à HomeView.
+  useEffect(() => {
+    if (!user || typeof window === 'undefined') return;
+
+    const action = new URLSearchParams(window.location.search).get('desktopAction');
+    if (action !== 'create-group') return;
+
+    const timer = window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('welcome_create_group'));
+      window.history.replaceState({ appTab: 'discussion' }, '', TAB_PATHS.discussion);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [user]);
   const publicConsoleMessageLoggedRef = useRef(false);
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [selectedChatData, setSelectedChatData] = useState<{ name: string, avatar?: string } | null>(null);
