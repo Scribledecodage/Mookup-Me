@@ -3,6 +3,7 @@
 import AccountInfoPage from './pages/AccountInfoPage';
 import AccountSecurityPage from './pages/AccountSecurityPage';
 import ActivityPrivacyPage from './pages/ActivityPrivacyPage';
+import DesktopActivitySettingsPage from './pages/DesktopActivitySettingsPage';
 import AccessibilityPage from './pages/AccessibilityPage';
 import AppearancePage from './pages/AppearancePage';
 import BioPassionsPage from './pages/BioPassionsPage';
@@ -35,6 +36,7 @@ const PROFILE_PAGES = {
   'donnees-confidentialite': DataPrivacyPage,
   'permissions-messagerie': MessagingPermissionsPage,
   'confidentialite-activites': ActivityPrivacyPage,
+  'activite-desktop': DesktopActivitySettingsPage,
   notifications: NotificationsPage,
   apparence: AppearancePage,
   'voix-video': VoiceVideoPage,

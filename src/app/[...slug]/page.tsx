@@ -15,6 +15,7 @@ const PROFILE_SECTIONS = new Set([
   'systeme',
   'langue-heure',
   'confidentialite-activites',
+  'activite-desktop',
   'applications-connectees',
   'application-windows',
   'developpeur',

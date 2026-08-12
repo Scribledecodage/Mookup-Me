@@ -14,6 +14,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     if (typeof appId !== 'string') return;
     ipcRenderer.send('electron-system-activity-dismiss', appId);
   },
+  setSystemActivityPromptEnabled: (enabled) => {
+    ipcRenderer.send('electron-system-activity-prompt-preference', enabled === true);
+  },
   setRecentContacts: (contacts) => {
     if (!Array.isArray(contacts)) return;
     ipcRenderer.send('electron-recent-contacts', contacts.slice(0, 2));

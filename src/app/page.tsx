@@ -2,6 +2,7 @@
 
 import { auth, db } from '@/lib/firebase';
 import { usePresence } from '@/lib/presence';
+import DesktopActivityConsent from '@/components/DesktopActivityConsent';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
@@ -52,6 +53,7 @@ const PROFILE_SECTION_PATHS: Record<ProfileSection, string> = {
   systeme: '/profil/systeme',
   'langue-heure': '/profil/langue-heure',
   'confidentialite-activites': '/profil/confidentialite-activites',
+  'activite-desktop': '/profil/activite-desktop',
   'applications-connectees': '/profil/applications-connectees',
   'application-windows': '/profil/application-windows',
   developpeur: '/profil/developpeur',
@@ -594,6 +596,7 @@ export default function Home() {
         systeme: 'Système',
         'langue-heure': 'Langue et heure',
         'confidentialite-activites': 'Confidentialité des activités',
+        'activite-desktop': 'Activité sur l’ordinateur',
         'applications-connectees': 'Applications connectées',
         'application-windows': 'Application Windows',
         developpeur: 'Développeur',
@@ -910,6 +913,7 @@ export default function Home() {
   return (
     <div className="app-shell h-[100dvh] flex overflow-hidden bg-white">
       <CallHandler user={user} />
+      <DesktopActivityConsent user={user} />
       <div className={`${(selectedChat || mobileContent) ? 'hidden md:flex' : 'flex'} w-full md:w-[380px] md:min-w-[380px] border-r border-gray-200 flex-col`}>
         <HomeView 
           user={user}

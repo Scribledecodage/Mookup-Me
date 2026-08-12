@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import {
@@ -8,6 +8,7 @@ import {
   Key,
   UserCircle,
   WindowsLogo,
+  Desktop,
   IdentificationCard,
   Lock,
   Info,
@@ -46,6 +47,7 @@ export type ProfileSection =
   | 'systeme'
   | 'langue-heure'
   | 'confidentialite-activites'
+  | 'activite-desktop'
   | 'applications-connectees'
   | 'application-windows'
   | 'developpeur'
@@ -90,6 +92,7 @@ const SECTIONS = [
       { id: 'donnees-confidentialite' as ProfileSection, label: 'Données et confidentialité',      desc: 'Protection de vos données',         icon: ShieldCheck },
       { id: 'permissions-messagerie'  as ProfileSection, label: 'Permissions de messagerie',       desc: 'Qui peut vous contacter',           icon: ChatCircle  },
       { id: 'confidentialite-activites' as ProfileSection, label: 'Confidentialité des activités', desc: 'Contrôle de votre activité',        icon: ShieldCheck },
+      { id: 'activite-desktop'          as ProfileSection, label: 'Activité sur l’ordinateur',  desc: 'Demandes d’activité dans Mookup Windows', icon: Desktop       },
     ],
   },
   {
@@ -163,6 +166,15 @@ export default function ProfileView({
   hideActiveStyle = false,
 }: ProfileViewProps) {
   const [search, setSearch] = useState('');
+  const [isElectron, setIsElectron] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setIsElectron(window.electronAPI?.isElectron === true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   // Ouvre directement la rubrique contenant la section ciblée par l’URL.
   const [openSections, setOpenSections] = useState<Set<string>>(() => {
     const activeGroup = SECTIONS.find(section => section.items.some(item => item.id === activeSection));
@@ -254,11 +266,9 @@ export default function ProfileView({
           const SectionIcon = section.icon;
           const isOpen = openSections.has(section.id);
 
-          const visibleItems = q
-            ? section.items.filter(i =>
-                i.label.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q)
-              )
-            : section.items;
+          const visibleItems = section.items
+            .filter(item => item.id !== 'activite-desktop' || isElectron)
+            .filter(i => !q || i.label.toLowerCase().includes(q) || i.desc.toLowerCase().includes(q));
 
           if (q && visibleItems.length === 0) return null;
 

@@ -67,6 +67,7 @@ let systemActivityPromptWindow = null;
 let pendingSystemActivity = null;
 let lastDetectedSystemActivityId = null;
 let approvedSystemActivityId = null;
+let systemActivityPromptEnabled = false;
 const dismissedSystemActivityIds = new Set();
 let isInstallingUpdate = false;
 let isQuitting = false;
@@ -86,6 +87,17 @@ ipcMain.on('electron-system-activity-approve', (_event, appId) => {
 
 ipcMain.on('electron-system-activity-dismiss', (_event, appId) => {
   dismissSystemActivity(String(appId || ''));
+});
+
+ipcMain.on('electron-system-activity-prompt-preference', (_event, enabled) => {
+  systemActivityPromptEnabled = enabled === true;
+  if (!systemActivityPromptEnabled) {
+    pendingSystemActivity = null;
+    approvedSystemActivityId = null;
+    hideSystemActivityPrompt();
+    return;
+  }
+  updateSystemActivityPrompt(currentSystemActivity);
 });
 
 function getUpdateLogPath() {
@@ -380,6 +392,12 @@ function showSystemActivityPrompt(activity) {
 }
 
 function updateSystemActivityPrompt(activity) {
+  if (!systemActivityPromptEnabled) {
+    pendingSystemActivity = null;
+    hideSystemActivityPrompt();
+    return;
+  }
+
   const appId = activity?.appId || null;
   if (appId !== lastDetectedSystemActivityId) {
     if (lastDetectedSystemActivityId) dismissedSystemActivityIds.delete(lastDetectedSystemActivityId);

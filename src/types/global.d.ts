@@ -33,6 +33,7 @@ interface Window {
     getSystemActivity?: () => Promise<ElectronSystemActivity | null>;
     approveSystemActivity?: (appId: string) => void;
     dismissSystemActivity?: (appId: string) => void;
+    setSystemActivityPromptEnabled?: (enabled: boolean) => void;
     onSystemActivity?: (listener: (activity: ElectronSystemActivity | null) => void) => () => void;
     onSystemActivityApproved?: (listener: (activity: ElectronSystemActivity) => void) => () => void;
     onSystemActivityDismissed?: (listener: (activity: { appId: string }) => void) => () => void;

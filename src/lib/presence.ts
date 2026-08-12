@@ -52,6 +52,7 @@ type PresenceEntry = {
 
 type PresenceListener = (users: OnlineUser[]) => void;
 type ActivityPromptListener = (activity: UserActivity | null) => void;
+type DesktopActivityPromptConsent = 'unset' | 'enabled' | 'disabled';
 
 type PresenceStore = {
   uid: string;
@@ -97,7 +98,12 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
   const activityPromptListeners = new Set<ActivityPromptListener>();
   const presenceEntries = new Map<string, PresenceEntry>();
   const dismissedActivityIds = new Set<string>();
-  let activityPrivacy = { showOnlineStatus: true, showLastActivity: true, showActivity: true };
+  let activityPrivacy: {
+    showOnlineStatus: boolean;
+    showLastActivity: boolean;
+    showActivity: boolean;
+    desktopPromptConsent: DesktopActivityPromptConsent;
+  } = { showOnlineStatus: true, showLastActivity: true, showActivity: true, desktopPromptConsent: 'unset' };
   let isActive = true;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
   let unsubscribeStatuses: (() => void) | null = null;
@@ -357,13 +363,26 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
     unsubscribePrivacy = onSnapshot(doc(db, 'users', uid), snapshot => {
       if (!isActive) return;
       const savedPrivacy = snapshot.data()?.activityPrivacy || {};
+      const desktopPromptConsent: DesktopActivityPromptConsent = savedPrivacy.desktopPromptConsent === 'enabled'
+        ? 'enabled'
+        : savedPrivacy.desktopPromptConsent === 'disabled' ? 'disabled' : 'unset';
       activityPrivacy = {
         showOnlineStatus: savedPrivacy.showOnlineStatus !== false,
         showLastActivity: savedPrivacy.showLastActivity !== false,
         showActivity: savedPrivacy.showActivity !== false,
+        desktopPromptConsent,
       };
+      window.electronAPI?.setSystemActivityPromptEnabled?.(
+        desktopPromptConsent === 'enabled' && activityPrivacy.showActivity,
+      );
+      if (desktopPromptConsent !== 'enabled') {
+        systemActivity = null;
+        pendingActivity = null;
+        notifyActivityPrompt();
+      }
       void writePresence();
     }, () => {
+      window.electronAPI?.setSystemActivityPromptEnabled?.(false);
       void writePresence();
     });
   }
