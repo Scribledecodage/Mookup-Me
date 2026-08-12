@@ -25,15 +25,14 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 The Electron shell opens the deployed Mookup site and keeps desktop integration isolated from the web page. Game detection, overlays, and screen sharing are intentionally not included yet.
 
 ```bash
-# Terminal 1: run the web app locally
-npm run dev
-
-# Terminal 2: open the local web app in Electron
-npm run electron:dev
-
-# Open the deployed Mookup site in Electron
+# Démarre automatiquement Next.js puis Electron en local
 npm run electron
+
+# Alternative équivalente
+npm run electron:dev
 ```
+
+Le lanceur réutilise un serveur déjà disponible sur `http://localhost:3000` et l’arrête automatiquement s’il l’a démarré lui-même. Pour ouvrir le site déployé dans Electron, utilisez `MOOKUP_ELECTRON_URL=https://mookup-me.vercel.app npm run electron:dev` ou construisez l’application avec `npm run electron:dist`.
 
 The shell uses a secure preload bridge with `contextIsolation`, sandboxing, and no Node.js integration in the page. The URL can be overridden with `MOOKUP_ELECTRON_URL` (test/local) or `MOOKUP_APP_URL` (deployment active, for example `https://your-project.vercel.app`).
 
