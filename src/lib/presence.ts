@@ -92,13 +92,17 @@ function getMookupActivity(): UserActivity {
 
 function normalizeSystemActivity(activity: ElectronSystemActivity | null): UserActivity | null {
   if (!activity?.appName) return null;
-  return {
+
+  const normalized: UserActivity = {
     appId: activity.appId || 'desktop-app',
     appName: activity.appName,
-    details: activity.details,
-    state: activity.state,
-    logoUrl: activity.logoUrl || undefined,
   };
+
+  if (typeof activity.details === 'string' && activity.details.trim()) normalized.details = activity.details;
+  if (typeof activity.state === 'string' && activity.state.trim()) normalized.state = activity.state;
+  if (typeof activity.logoUrl === 'string' && activity.logoUrl.trim()) normalized.logoUrl = activity.logoUrl;
+
+  return normalized;
 }
 
 function createPresenceStore(uid: string, displayName?: string | null): PresenceStore {
