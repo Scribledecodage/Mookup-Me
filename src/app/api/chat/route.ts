@@ -6,6 +6,12 @@ const mistral = new OpenAI({
   baseURL: "https://api.mistral.ai/v1",
 });
 
+const cleanImageAnalysisResponse = (value: string) => value
+  .replace(/[\r\n]+/g, ' ')
+  .replace(/[^\p{L}\p{N}\s,.]/gu, '')
+  .replace(/\s{2,}/g, ' ')
+  .trim();
+
 export async function POST(req: Request) {
   if (!process.env.MISTRAL_API_KEY) {
     return NextResponse.json(
@@ -14,7 +20,7 @@ export async function POST(req: Request) {
     );
   }
   try {
-    const { message, imageUrl } = await req.json();
+    const { message, imageUrl, systemPrompt, botName, model, imageAnalysis } = await req.json();
 
     if (!message && !imageUrl) {
       return NextResponse.json({ error: "Message or Image is required" }, { status: 400 });
@@ -27,10 +33,24 @@ export async function POST(req: Request) {
       year: 'numeric' 
     });
 
+    const customSystemPrompt = typeof systemPrompt === 'string' && systemPrompt.trim()
+      ? `Tu es ${typeof botName === 'string' && botName.trim() ? botName.trim() : 'un assistant personnalisé'} intégré à Mookup.\n\nDate du jour : ${currentDate}\n\nRéponds en français sauf si l’utilisateur écrit dans une autre langue. Sois naturel, utile et concis.\n\nInstructions de fonctionnement :\n${systemPrompt.trim()}`
+      : '';
+
+    const imageAnalysisPrompt = imageAnalysis === true && imageUrl
+      ? `Tu es le module d’analyse d’image de BDD Bot dans une fenêtre d’analyse. Tu n’es pas un assistant de messagerie.
+
+Donne uniquement le résultat de l’analyse demandée. Ne commence pas par une salutation, une formule de politesse ou une présentation. Ne termine pas par une question ou une invitation.
+
+Réponds en français dans un seul bloc de texte court et clair. N’utilise pas de markdown, de listes, de titres, de puces, d’emojis, d’icônes, d’astérisques, de dièses, de tirets, de guillemets décoratifs, de parenthèses, de crochets, de liens ou de symboles décoratifs. Utilise uniquement des phrases normales avec des lettres, des chiffres, des espaces, des virgules et des points. Les accents français sont autorisés.
+
+Analyse uniquement ce qui est visible dans l’image. Si un détail est illisible ou incertain, indique-le simplement. N’invente aucune information.`
+      : '';
+
     const messages: any[] = [
       {
         role: 'system',
-        content: `Tu es BDD Bot, l'assistant IA intégré à Mookup. Tu es propulsé par Mistral IA.
+        content: imageAnalysisPrompt || customSystemPrompt || `Tu es BDD Bot, l'assistant IA intégré à Mookup. Tu es propulsé par Mistral IA.
 
 Date du jour : ${currentDate}
 
@@ -73,7 +93,10 @@ Date du jour : ${currentDate}
     messages.push({ role: 'user', content: userContent });
 
     // Choix du modèle : Pixtral latest si il y a une image, Mistral Small latest sinon
-    const modelToUse = imageUrl ? 'pixtral-12b-latest' : 'mistral-small-latest';
+    const allowedModels = ['mistral-large-latest', 'mistral-small-latest'];
+    const modelToUse = imageUrl
+      ? 'pixtral-12b-latest'
+      : (typeof model === 'string' && allowedModels.includes(model) ? model : 'mistral-small-latest');
 
     const chatCompletion = await mistral.chat.completions.create({
       messages,
@@ -81,8 +104,11 @@ Date du jour : ${currentDate}
     });
 
     const responseText = chatCompletion.choices[0]?.message?.content || "Désolé, je n'ai pas pu générer de réponse.";
+    const finalResponse = imageAnalysis === true && imageUrl
+      ? cleanImageAnalysisResponse(responseText)
+      : responseText;
 
-    return NextResponse.json({ response: responseText });
+    return NextResponse.json({ response: finalResponse });
   } catch (error: any) {
     console.error('Mistral API Error:', error);
     return NextResponse.json(

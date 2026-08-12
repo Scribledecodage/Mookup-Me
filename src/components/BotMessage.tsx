@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Copy, Check } from '@phosphor-icons/react';
+import SpeechHighlightedText from '@/components/SpeechHighlightedText';
 
 const LANG_ICONS: Record<string, string> = {
   python:     'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg',
@@ -92,17 +93,22 @@ function BotCodeBlock({ children, className }: any) {
 
 interface BotMessageProps {
   text: string;
+  activeSpeechSentence?: string | null;
+  activeSpeechWord?: string | null;
+  activeSpeechWordIndex?: number | null;
 }
 
-export default function BotMessage({ text }: BotMessageProps) {
+export default function BotMessage({ text, activeSpeechSentence = null, activeSpeechWord = null, activeSpeechWordIndex = null }: BotMessageProps) {
   return (
-    <div className="text-[15px] text-gray-800 leading-relaxed break-words space-y-1.5">
+    <div className="w-full min-w-0 max-w-full overflow-hidden text-[15px] text-gray-800 leading-relaxed break-words [overflow-wrap:anywhere] space-y-1.5">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           // Paragraphes
           p: ({ children }) => (
-            <p className="mb-1.5 last:mb-0 text-gray-800">{children}</p>
+            <p className="block w-full mb-1.5 last:mb-0 text-gray-800">
+              <SpeechHighlightedText activeSentence={activeSpeechSentence} activeWord={activeSpeechWord} activeWordIndex={activeSpeechWordIndex}>{children}</SpeechHighlightedText>
+            </p>
           ),
 
           // Titres

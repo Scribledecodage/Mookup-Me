@@ -25,15 +25,21 @@ import type { ProfileSection } from '@/components/sidebar/ProfileView';
 
 function getGreeting(): { text: string; emoji: string } {
   const h = new Date().getHours();
-  if (h >= 4 && h < 6)   return { text: 'Lève-tôt aujourd\'hui !',       emoji: '🌅' };
-  if (h >= 6 && h < 9)   return { text: 'Bon réveil',                     emoji: '☀️' };
-  if (h >= 9 && h < 12)  return { text: 'Belle matinée',                  emoji: '🌤' };
-  if (h >= 12 && h < 14) return { text: 'Bon appétit',                    emoji: '🍽️' };
-  if (h >= 14 && h < 18) return { text: 'Bonne après-midi',               emoji: '🌿' };
-  if (h >= 18 && h < 21) return { text: 'Belle soirée',                   emoji: '🌆' };
-  if (h >= 21 && h < 23) return { text: 'Bonne nuit',                     emoji: '🌙' };
-  return                         { text: 'Encore debout ?',                emoji: '🦉' };
+  if (h >= 0 && h < 2)   return { text: 'Toujours réveillé ? Il est tard, prends soin de toi.',              emoji: '🌙' };
+  if (h >= 2 && h < 4)   return { text: 'Encore réveillé à cette heure-ci ? Respecte aussi ton sommeil.',   emoji: '🌌' };
+  if (h >= 4 && h < 6)   return { text: 'Déjà debout ? Le monde dort encore, belle énergie !',             emoji: '🌅' };
+  if (h >= 6 && h < 8)   return { text: 'Bonjour, bon réveil ! Que ta journée commence bien.',             emoji: '☀️' };
+  if (h >= 8 && h < 10)  return { text: 'Belle matinée, prêt à démarrer tranquillement ?',               emoji: '🌤️' };
+  if (h >= 10 && h < 12) return { text: 'Bonne matinée, ça avance bien de ton côté ?',                   emoji: '✨' };
+  if (h >= 12 && h < 14) return { text: 'Bon appétit ! Prends le temps de faire une vraie pause.',        emoji: '🍽️' };
+  if (h >= 14 && h < 16) return { text: 'Bon après-midi, on garde le rythme sans se presser ?',          emoji: '🌿' };
+  if (h >= 16 && h < 18) return { text: 'Bonne fin d’après-midi, encore un petit effort ?',              emoji: '🌇' };
+  if (h >= 18 && h < 20) return { text: 'Belle soirée, profite bien de ce moment pour toi.',               emoji: '🌆' };
+  if (h >= 20 && h < 22) return { text: 'Bonne soirée, prends un peu de temps pour souffler.',             emoji: '🌃' };
+  return                       { text: 'Bonne nuit… ou encore un dernier tour avant de dormir ?',          emoji: '🦉' };
 }
+
+const PUBLIC_CONSOLE_MESSAGE = "Salut 👋 merci de ne pas modifier mon code, je galère dessus… Mais bon amuse-toi si tu veux, juste pas n’importe quoi 😄 Et pour info, Minecraft est meilleur que tous les autres jeux.";
 
 function WelcomePanel() {
   const { text, emoji } = getGreeting();
@@ -202,6 +208,7 @@ function WelcomePanel() {
 
 export default function Home() {
   const [user, loading] = useAuthState(auth);
+  const publicConsoleMessageLoggedRef = useRef(false);
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [selectedChatData, setSelectedChatData] = useState<{ name: string, avatar?: string } | null>(null);
   const [activeTab, setActiveTab] = useState<string>('discussion');
@@ -264,6 +271,12 @@ export default function Home() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState('');
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  useEffect(() => {
+    if (loading || publicConsoleMessageLoggedRef.current) return;
+    console.log(PUBLIC_CONSOLE_MESSAGE);
+    publicConsoleMessageLoggedRef.current = true;
+  }, [loading, user]);
 
   const handleStartPrivateChat = async (otherUser: any) => {
     if (!user) return;
@@ -346,10 +359,9 @@ export default function Home() {
     // Contenu mobile (bots / profil)
     if (mobileContent === 'bots') {
       const labels: Record<string, string> = {
-        accueil: 'Bots',
+        accueil: 'Accueil',
         applications: 'Applications',
-        serveurs: 'Serveurs',
-        debug: 'Debug',
+        statistiques: 'Statistiques',
       };
       document.title = `${labels[botSection] ?? 'Bots'} | ${APP}`;
       return;
@@ -686,6 +698,7 @@ export default function Home() {
             }
             setMobileContent(null);
           }}
+          botSection={botSection}
           onBotSectionChange={setBotSection}
           onProfileSectionChange={setProfileSection}
           onMobileOpenContent={(tab) => setMobileContent(tab)}
@@ -712,6 +725,13 @@ export default function Home() {
               setSelectedChatData(null);
             }}
             onStartPrivateChat={handleStartPrivateChat}
+            onOpenBotChat={(chatId, data) => {
+              setSelectedChat(chatId);
+              setSelectedChatData(data);
+              setActiveTab('discussion');
+              setMobileContent(null);
+              window.dispatchEvent(new CustomEvent('app_navigate', { detail: { tabId: 'discussion' } }));
+            }}
             onNavigate={(tabId) => {
               const evt = new CustomEvent('app_navigate', { detail: { tabId } });
               window.dispatchEvent(evt);
@@ -730,7 +750,17 @@ export default function Home() {
               <span className="text-[16px] font-normal text-gray-800">Bots</span>
             </div>
             <div className="flex-1 min-h-0 relative h-full">
-              <BotPage section={botSection} />
+              <BotPage
+                section={botSection}
+                onSectionChange={setBotSection}
+                onOpenBotChat={(chatId, data) => {
+                  setSelectedChat(chatId);
+                  setSelectedChatData(data);
+                  setActiveTab('discussion');
+                  setMobileContent(null);
+                  window.dispatchEvent(new CustomEvent('app_navigate', { detail: { tabId: 'discussion' } }));
+                }}
+              />
             </div>
           </div>
         ) : (mobileContent === 'profil' || activeTab === 'profil') ? (

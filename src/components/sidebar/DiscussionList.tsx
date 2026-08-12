@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Laptop, DeviceMobile, Trash, UsersThree, X } from '@phosphor-icons/react';
+import { Brain, Laptop, DeviceMobile, Trash, UsersThree, X } from '@phosphor-icons/react';
 import UserAvatar from '@/components/ui/UserAvatar';
 import { usePresence } from '@/lib/presence';
 import GroupAvatar from '@/components/ui/GroupAvatar';
@@ -16,6 +16,16 @@ interface DiscussionListProps {
   customGroups?: any[];
   allUsers?: any[];
   onDeletePrivateChat?: (id: string) => void;
+}
+
+function getMessagePreview(text: string) {
+  return text
+    .replace(/\r?\n+/g, ' ')
+    .replace(/^\s*[-*+]\s+/gm, '• ')
+    .replace(/^\s*\d+[.)]\s+/gm, '')
+    .replace(/[`*_~]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function UnreadBadge({ count }: { count: number }) {
@@ -174,12 +184,20 @@ export default function DiscussionList({
 
       {/* Liste des conversations privées */}
       {privateChats.map(chat => {
-        const otherUserId = chat.participants.find((id: string) => id !== user?.uid);
+        const isBotChat = Boolean(chat.isBotChat || chat.botId);
+        const otherUserId = isBotChat
+          ? `bot-${chat.botId}`
+          : chat.participants.find((id: string) => id !== user?.uid);
         const otherUser = allUsers.find(u => u.id === otherUserId || u.uid === otherUserId);
-        const displayName = otherUser?.displayName || otherUser?.nickname || 'Anonyme';
-        const photoURL = otherUser?.photoURL;
+        const displayName = isBotChat
+          ? chat.botName || 'Bot'
+          : otherUser?.displayName || otherUser?.nickname || 'Anonyme';
+        const photoURL = isBotChat && chat.botPhotoURL && chat.botPhotoURL !== '/Logo.png'
+          ? chat.botPhotoURL
+          : isBotChat ? '' : otherUser?.photoURL;
 
         const onlineUser = onlineUsers.find(u => u.uid === otherUserId);
+        const typingUser = onlineUsers.find(u => u.uid === otherUserId && u.isTyping && u.typingIn === chat.id);
         const isOnline = !!onlineUser;
         const device = onlineUser?.device || 'desktop';
         
@@ -208,6 +226,8 @@ export default function DiscussionList({
                 <div className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-gray-100 flex items-center justify-center border border-gray-100 shadow-sm text-gray-500 overflow-hidden">
                   {photoURL ? (
                     <img src={photoURL} alt={displayName} className="w-full h-full object-cover" />
+                  ) : isBotChat ? (
+                    <Brain size={22} weight="duotone" className="text-gray-500" aria-hidden="true" />
                   ) : (
                     <UserAvatar uid={otherUserId || ''} photoURL={null} displayName={displayName} size={44} />
                   )}
@@ -215,7 +235,7 @@ export default function DiscussionList({
                 {unreadCounts[chat.id] > 0 && selectedGroupId !== chat.id && <UnreadBadge count={unreadCounts[chat.id]} />}
               </div>
               {/* Pastille ou icône selon le statut et l'appareil */}
-              {isOnline ? (
+              {!isBotChat && isOnline ? (
                 <div className="absolute -bottom-0.5 -right-0.5 w-[19px] h-[19px] bg-white rounded-full p-0.5 shadow border border-gray-100 flex items-center justify-center z-10" title={device === 'phone' ? "En ligne (Mobile)" : "En ligne (PC)"}>
                   {device === 'phone' ? (
                     <DeviceMobile size={13} className="text-blue-500" weight="bold" />
@@ -223,22 +243,28 @@ export default function DiscussionList({
                     <Laptop size={13} className="text-blue-500" weight="bold" />
                   )}
                 </div>
-              ) : (
+              ) : !isBotChat ? (
                 <div className="absolute -bottom-0.5 -right-0.5 w-[14px] h-[14px] bg-gray-400 border-2 border-white rounded-full z-10" title="Hors ligne" />
-              )}
+              ) : null}
             </div>
             <div className="flex-1 min-w-0 relative pr-6">
               <div className="flex justify-between items-baseline gap-2">
                 <h2 className="flex min-w-0 items-center gap-1 pr-14 font-normal text-gray-800 text-[14.5px]" style={{ fontFamily: 'var(--font-dm-sans), "DM Sans", sans-serif' }}><span className="truncate">{displayName}</span><UnreadTime count={unreadCounts[chat.id]} time={lastMessageTimes[chat.id]} isSelected={selectedGroupId === chat.id} /></h2>
               </div>
-              {/* Dernier message ou statut 'écrit...' si disponible */}
-              <div className="text-xs text-gray-500 truncate mt-0.5 max-w-[85%]">
-                {onlineUsers.find(u => u.uid === otherUserId && u.isTyping && u.typingIn === chat.id) ? (
-                  <span className="text-blue-500 font-medium italic flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></span>
-                    écrit...
+              {/* Dernier message ou statut « écrit… » animé */}
+              <div className="mt-0.5 flex min-h-[18px] max-w-[85%] items-center truncate text-xs text-gray-500">
+                {typingUser ? (
+                  <span className="contact-typing-preview flex items-center gap-1.5 truncate font-medium text-[#5865f2]" aria-label={`${displayName} écrit`}>
+                    <span className="contact-typing-dots flex shrink-0 items-center gap-[3px]" aria-hidden="true">
+                      <span className="contact-typing-dot" />
+                      <span className="contact-typing-dot" />
+                      <span className="contact-typing-dot" />
+                    </span>
+                    <span className="truncate">écrit…</span>
                   </span>
-                ) : null}
+                ) : (
+                  <span className="block min-w-0 truncate whitespace-nowrap">{getMessagePreview(displayLastMessage)}</span>
+                )}
               </div>
 
             </div>

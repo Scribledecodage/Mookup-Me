@@ -50,7 +50,7 @@ export default function CallsView({ user, allUsers }: CallsViewProps) {
   const handleStartCall = async (type: 'audio' | 'video') => {
     if (!user || selectedUsers.length === 0) return;
     
-    // Générer un nom de salle Jitsi valide (lettres et chiffres uniquement)
+    // Générer un nom de salle Daily sûr et partageable uniquement via les tokens serveur
     const roomId = `MookupRoom${Date.now()}${Math.random().toString(36).substr(2, 6)}`.replace(/[^a-zA-Z0-9]/g, '');
     
     try {

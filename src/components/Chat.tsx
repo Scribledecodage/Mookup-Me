@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from '@/lib/firebase';
+import { recordBotShopEvent } from '@/lib/shopEvents';
 import { supabase } from '@/lib/supabase';
 import { 
   collection, 
@@ -46,6 +47,27 @@ import {
 import { extractColors, buildMeshGradient, buildMeshGradientFromColor } from '@/lib/colorUtils';
 import { getUserColor } from '@/lib/getUserColor';
 
+type CustomBot = {
+  id: string;
+  name: string;
+  slug?: string;
+  prompt?: string;
+  model?: string;
+  description?: string;
+  photoURL?: string;
+  bannerURL?: string;
+  bannerColor?: string;
+  category?: string;
+  commands?: string;
+  welcomeMessage?: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdByPhotoURL?: string;
+  createdAt?: any;
+};
+
+const escapeRegExp = (value: string) => value;
+
 import AddMembersModal from './sidebar/AddMembersModal';
 import CreateGroupModal from './sidebar/CreateGroupModal';
 import StatusViewer from './status/StatusViewer';
@@ -60,6 +82,8 @@ import MembersPanel from './chat/MembersPanel';
 import ContactPanel from './chat/ContactPanel';
 import ContactProfile from './chat/ContactProfile';
 import GroupProfile from './chat/GroupProfile';
+import BotProfile from './chat/BotProfile';
+import BotInstallModal, { type BotInstallGroup, type BotInstallable } from './bots/BotInstallModal';
 
 import { usePresence } from '@/lib/presence';
 import { Capacitor } from '@capacitor/core';
@@ -73,17 +97,22 @@ export default function Chat({
   groupAvatar,
   onBack,
   onStartPrivateChat,
-  onNavigate
+  onNavigate,
+  onOpenBotChat,
 }: { 
   groupId?: string | null,
   groupName?: string,
   groupAvatar?: string,
   onBack?: () => void,
   onStartPrivateChat?: (user: { uid: string, displayName: string, photoURL?: string }) => void,
-  onNavigate?: (tab: string) => void
+  onNavigate?: (tab: string) => void,
+  onOpenBotChat?: (chatId: string, data: { name: string; avatar?: string }) => void,
 }) {
   const [user] = useAuthState(auth);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [customBots, setCustomBots] = useState<CustomBot[]>([]);
+  const [botChatConfig, setBotChatConfig] = useState<CustomBot | null>(null);
+  const [botToInstall, setBotToInstall] = useState<BotInstallable | null>(null);
   const [notificationPreferences, setNotificationPreferences] = useState({ messagesGroups: true, calls: true, sounds: true, browser: true });
   const [messageLimit, setMessageLimit] = useState(50);
   const [hasMore, setHasMore] = useState(true);
@@ -105,13 +134,29 @@ export default function Chat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef = useRef<number>(0);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingActiveRef = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const notificationAudioUrlRef = useRef<string | null>(null);
+  const notificationPreferencesRef = useRef(notificationPreferences);
   const appStateRef = useRef(appState);
   
   const { onlineUsers, setTyping } = usePresence(user?.uid, user?.displayName);
   const [otherUserRealtimeData, setOtherUserRealtimeData] = useState<{ uid?: string, displayName?: string, photoURL?: string } | null>(null);
+
+  useEffect(() => {
+    const botsQuery = query(collection(db, 'bots'), where('isPublic', '==', true));
+    return onSnapshot(botsQuery, snapshot => {
+      setCustomBots(snapshot.docs.map(botDocument => ({ id: botDocument.id, ...botDocument.data() })) as CustomBot[]);
+    }, error => {
+      console.warn('Bots personnalisés indisponibles:', error);
+      setCustomBots([]);
+    });
+  }, []);
+
+  useEffect(() => {
+    notificationPreferencesRef.current = notificationPreferences;
+  }, [notificationPreferences]);
 
   useEffect(() => {
     if (!user) return;
@@ -133,7 +178,7 @@ export default function Chat({
   const [contactBanner, setContactBanner] = useState<string>('');
   const [friendsSince, setFriendsSince] = useState<Date | null>(null);
 
-  const isCustomGroup = !!(groupId && !groupId.startsWith('private_') && !groupId.startsWith('ai-') && groupId !== 'general' && groupId !== 'snapchat');
+  const isCustomGroup = !!(groupId && !groupId.startsWith('private_') && !groupId.startsWith('ai-') && !groupId.startsWith('botchat_') && groupId !== 'general' && groupId !== 'snapchat');
 
   // Ferme les panels quand on change de groupe
   const prevGroupIdRef = useRef(groupId);
@@ -151,6 +196,11 @@ export default function Chat({
       setFriendsSince(null);
       setOtherUserStatus(null);
       setReplyingTo(null);
+      typingActiveRef.current = false;
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
       prevGroupIdRef.current = groupId;
     }
   }, [groupId]);
@@ -355,8 +405,8 @@ export default function Chat({
     audioDuration?: number,
     audioMimeType?: string,
     audioWaveform?: number[],
-  ) => {
-    if ((!text.trim() && !imageUrl && !videoUrl && !audioUrl) || !user) return;
+  ): Promise<ReplyTo | null> => {
+    if ((!text.trim() && !imageUrl && !videoUrl && !audioUrl) || !user) return null;
     try {
       const msgData: any = {
         text, uid: user.uid, displayName: user.displayName || 'Utilisateur',
@@ -382,7 +432,7 @@ export default function Chat({
         msgData.replyTo = sanitizedReplyTo;
       }
 
-      await addDoc(collection(db, 'messages'), msgData);
+      const storedMessage = await addDoc(collection(db, 'messages'), msgData);
 
       if (groupId?.startsWith('private_')) {
         await setDoc(doc(db, 'private_chats', groupId), {
@@ -399,7 +449,23 @@ export default function Chat({
           deletedBy: []
         }).catch(() => {});
       }
-    } catch (error) { console.error('Error sending message:', error); }
+
+      const sourceReply: ReplyTo = {
+        id: storedMessage.id,
+        text: text || (imageUrl ? '📸 Image' : videoUrl ? '🎥 Vidéo' : audioUrl ? '🎙️ Message vocal' : 'Message'),
+        uid: user.uid,
+        displayName: user.displayName || 'Utilisateur',
+      };
+      if (user.photoURL) sourceReply.photoURL = user.photoURL;
+      if (audioUrl) {
+        sourceReply.audioUrl = audioUrl;
+        sourceReply.audioDuration = audioDuration;
+      }
+      return sourceReply;
+    } catch (error) {
+      console.error('Error sending message:', error);
+      return null;
+    }
   };
 
   const processFile = async (file: File) => {
@@ -434,6 +500,13 @@ export default function Chat({
 
   // --- Computed values (needed by effects below) ---
   const typingUsers = groupId === 'snapchat' ? [] : onlineUsers.filter(u => u.uid !== user?.uid && u.isTyping && u.typingIn === (groupId || 'general'));
+  const isBotChat = Boolean(groupId?.startsWith('botchat_'));
+  const botChatId = isBotChat && user?.uid && groupId
+    ? groupId.slice(`botchat_${user.uid}_`.length)
+    : null;
+  const installedBotIds = Array.isArray(customGroupData?.installedBots)
+    ? customGroupData.installedBots.map((installedBot: any) => installedBot.botId).filter(Boolean)
+    : [];
 
   // ID de l'autre utilisateur dans une discussion privée
   const otherUserId = groupId?.startsWith('private_')
@@ -442,8 +515,31 @@ export default function Chat({
   const hasCurrentUserData = otherUserRealtimeData?.uid === otherUserId;
   const displayAvatar = isCustomGroup ? customGroupData?.photoURL || groupAvatar : hasCurrentUserData ? otherUserRealtimeData?.photoURL ?? groupAvatar : groupAvatar;
   const displayName = isCustomGroup ? customGroupData?.name || groupName : hasCurrentUserData ? otherUserRealtimeData?.displayName ?? groupName : groupName;
+  const botProfile = isBotChat
+    ? botChatConfig || {
+        id: botChatId || '',
+        name: groupName,
+        photoURL: groupAvatar,
+        bannerColor: '#6366f1',
+      }
+    : null;
 
   // --- Effects ---
+
+  useEffect(() => {
+    if (!isBotChat || !botChatId) {
+      setBotChatConfig(null);
+      return;
+    }
+    const knownBot = customBots.find(bot => bot.id === botChatId);
+    if (knownBot) {
+      setBotChatConfig(knownBot);
+      return;
+    }
+    getDoc(doc(db, 'bots', botChatId)).then(snapshot => {
+      if (snapshot.exists()) setBotChatConfig({ id: snapshot.id, ...snapshot.data() } as CustomBot);
+    }).catch(() => {});
+  }, [isBotChat, botChatId, customBots]);
 
   useEffect(() => {
     if (!showOtherUserProfile || !otherUserId) return;
@@ -481,7 +577,7 @@ export default function Chat({
 
   useEffect(() => {
     const needsUsers = showOtherUserProfile || showMembersPanel;
-    const needsGroupUsers = groupId === 'general' || isCustomGroup;
+    const needsGroupUsers = groupId === 'general' || isCustomGroup || groupId === 'snapchat';
     let cancelled = false;
 
     if (needsUsers && needsGroupUsers) {
@@ -630,18 +726,38 @@ export default function Chat({
       // Notification Logic
       if (!snap.metadata.hasPendingWrites) {
         const lastMsg = [...msgs].sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))[0];
-        if (notificationPreferences.messagesGroups && lastMsg && lastMsg.uid !== user?.uid && (appStateRef.current !== 'active' || document.visibilityState !== 'visible')) {
+        if (notificationPreferencesRef.current.messagesGroups && lastMsg && lastMsg.uid !== user?.uid && (appStateRef.current !== 'active' || document.visibilityState !== 'visible')) {
           if (localStorage.getItem('last_notif_id') !== lastMsg.id) {
             localStorage.setItem('last_notif_id', lastMsg.id);
             if (Capacitor.isNativePlatform()) {
-              if (notificationPreferences.sounds) Haptics.vibrate();
-              if (notificationPreferences.browser) {
-                LocalNotifications.schedule({ notifications: [{ title: `Message de ${lastMsg.displayName}`, body: lastMsg.text || (lastMsg.audioUrl ? '🎙️ Message vocal' : lastMsg.imageUrl ? '📸 Image' : lastMsg.videoUrl ? '🎥 Vidéo' : 'Message'), id: Date.now(), sound: notificationPreferences.sounds ? 'notification.mp3' : undefined }] });
+              if (notificationPreferencesRef.current.sounds) Haptics.vibrate();
+              if (notificationPreferencesRef.current.browser) {
+                LocalNotifications.schedule({ notifications: [{ title: `Message de ${lastMsg.displayName}`, body: lastMsg.text || (lastMsg.audioUrl ? '🎙️ Message vocal' : lastMsg.imageUrl ? '📸 Image' : lastMsg.videoUrl ? '🎥 Vidéo' : 'Message'), id: Date.now(), sound: notificationPreferencesRef.current.sounds ? 'notification.mp3' : undefined }] });
               }
             } else {
-              if (notificationPreferences.sounds) audioRef.current?.play().catch(() => {});
-              if (notificationPreferences.browser && Notification.permission === 'granted') {
-                navigator.serviceWorker.ready.then(reg => reg.showNotification(`Message de ${lastMsg.displayName}`, { body: lastMsg.text || (lastMsg.audioUrl ? '🎙️ Message vocal' : lastMsg.imageUrl ? '📸 Image' : lastMsg.videoUrl ? '🎥 Vidéo' : 'Message'), icon: '/Logo.png' }));
+              if (notificationPreferencesRef.current.sounds) audioRef.current?.play().catch(() => {});
+              if (notificationPreferencesRef.current.browser && Notification.permission === 'granted') {
+                const showMessageNotification = async () => {
+                  let senderPhotoURL = lastMsg.photoURL || '';
+
+                  // Certains anciens messages ou comptes n’ont pas l’avatar dans le message.
+                  // On récupère alors la photo actuelle du profil avant d’afficher la notification.
+                  if (!senderPhotoURL && lastMsg.uid) {
+                    try {
+                      const senderSnapshot = await getDoc(doc(db, 'users', lastMsg.uid));
+                      senderPhotoURL = senderSnapshot.data()?.photoURL || '';
+                    } catch {
+                      // Le logo reste le secours si le profil est inaccessible.
+                    }
+                  }
+
+                  const registration = await navigator.serviceWorker.ready;
+                  await registration.showNotification(`Message de ${lastMsg.displayName}`, {
+                    body: lastMsg.text || (lastMsg.audioUrl ? '🎙️ Message vocal' : lastMsg.imageUrl ? '📸 Image' : lastMsg.videoUrl ? '🎥 Vidéo' : 'Message'),
+                    icon: senderPhotoURL || '/Logo.png'
+                  });
+                };
+                void showMessageNotification();
               }
             }
           }
@@ -650,7 +766,7 @@ export default function Chat({
     });
 
     return () => unsub();
-  }, [groupId, user?.uid, messageLimit, clearedAtTime, notificationPreferences]);
+  }, [groupId, user?.uid, messageLimit, clearedAtTime]);
 
   const handleReply = (message: Message) => {
     const reply: ReplyTo = {
@@ -711,7 +827,10 @@ export default function Chat({
     e.preventDefault();
     if ((!newMessage.trim() && pendingFiles.length === 0) || !user) return;
     
-    setTyping(false);
+    if (typingActiveRef.current) {
+      typingActiveRef.current = false;
+      void setTyping(false, groupId || 'general');
+    }
     const textToSend = newMessage;
     const filesToSend = [...pendingFiles];
     const replyToSend = replyingTo;
@@ -720,28 +839,68 @@ export default function Chat({
     setPendingFiles([]);
     setReplyingTo(null);
 
-    const isAiGroup = groupId?.startsWith('ai-');
-    const isAiCommand = !isAiGroup && textToSend.startsWith('/bddbot');
+    const isAiGroup = groupId?.startsWith('ai-') || isBotChat;
+    const hasBddBotMention = /^@bddbot\b/i.test(textToSend);
+    const mentionedCustomBot = customBots.find(bot => bot.slug && new RegExp(`^@${escapeRegExp(bot.slug)}\\b`, 'i').test(textToSend));
+    const mentionedBotIsInstalled = Boolean(mentionedCustomBot && installedBotIds.includes(mentionedCustomBot.id));
+    const customBot = isBotChat ? botChatConfig : mentionedBotIsInstalled ? mentionedCustomBot : undefined;
+    const isAiCommand = !isAiGroup && (hasBddBotMention || Boolean(customBot));
     
     if (isAiGroup || isAiCommand) {
-      const finalPrompt = isAiCommand ? textToSend.substring(7).trim() : textToSend;
+      const finalPrompt = customBot
+        ? isBotChat
+          ? textToSend.trim()
+          : textToSend.replace(new RegExp(`^@${escapeRegExp(customBot.slug || '')}\\b\\s*`, 'i'), '').trim()
+        : hasBddBotMention
+        ? textToSend.replace(/^@bddbot\b\s*/i, '').trim()
+        : textToSend;
+      const promptForApi = finalPrompt || 'L’utilisateur vient de te mentionner sans écrire de question. Réponds brièvement en lui demandant ce dont il a besoin.';
       const firstImageFile = filesToSend.find(f => f.type === 'image');
+      const botUid = customBot ? `bot-${customBot.id}` : 'bddbot';
+      const botDisplayName = customBot?.name || 'BDD Bot';
+      const botPhotoURL = customBot && customBot.photoURL && customBot.photoURL !== '/Logo.png'
+        ? customBot.photoURL
+        : customBot
+          ? ''
+          : '/BDDBOT.png';
       const firstImage = firstImageFile?.url;
-      await sendDirectMessage(textToSend, firstImage, undefined, replyToSend, firstImageFile?.name);
-      
-      fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: finalPrompt, imageUrl: firstImage, model: 'mistral-large-latest' }),
-      }).then(res => res.json()).then(data => {
-        if (data.response) {
-          addDoc(collection(db, 'messages'), {
-            text: data.response, uid: 'bddbot', targetUid: user.uid, displayName: 'BDD Bot',
-            photoURL: '/BDDBOT.png', groupId, createdAt: serverTimestamp(),
-            readBy: { [user.uid]: user.displayName }
-          });
+      const sourceReply = await sendDirectMessage(textToSend, firstImage, undefined, replyToSend, firstImageFile?.name);
+      const addBotMessage = async (text: string) => {
+        const botMessage: any = {
+          text, uid: botUid, targetUid: user.uid, displayName: botDisplayName,
+          photoURL: botPhotoURL, groupId, createdAt: serverTimestamp(),
+          readBy: { [user.uid]: user.displayName || 'Utilisateur' }
+        };
+        // BDD Bot cite toujours le message auquel il répond. L’utilisateur, lui, n’est pas forcé à citer le bot.
+        if (sourceReply) botMessage.replyTo = sourceReply;
+        await addDoc(collection(db, 'messages'), botMessage);
+        if (isBotChat && groupId) {
+          await setDoc(doc(db, 'private_chats', groupId), {
+            updatedAt: serverTimestamp(),
+            lastMessage: text,
+            deletedBy: [],
+          }, { merge: true });
         }
-      });
+      };
+      
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: promptForApi, imageUrl: firstImage, model: customBot?.model || 'mistral-large-latest', systemPrompt: customBot?.prompt, botName: customBot?.name }),
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.response) {
+          throw new Error(data.error || 'Réponse vide de BDD Bot');
+        }
+
+        await addBotMessage(data.response);
+        if (customBot?.id) void recordBotShopEvent(customBot.id, 'use');
+      } catch (error) {
+        console.error(`Erreur réponse ${botDisplayName}:`, error);
+        await addBotMessage("Je n’arrive pas à répondre pour le moment. Vérifie que le service IA est bien configuré, puis réessaie.");
+      }
     } else {
       if (textToSend.trim()) await sendDirectMessage(textToSend, undefined, undefined, replyToSend);
       for (const f of filesToSend) {
@@ -759,9 +918,15 @@ export default function Chat({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
     if (user && groupId !== 'snapchat') {
-      setTyping(true, groupId || 'general');
+      if (!typingActiveRef.current) {
+        typingActiveRef.current = true;
+        void setTyping(true, groupId || 'general');
+      }
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = setTimeout(() => setTyping(false, groupId || 'general'), 500);
+      typingTimeoutRef.current = setTimeout(() => {
+        typingActiveRef.current = false;
+        void setTyping(false, groupId || 'general');
+      }, 700);
     }
   };
 
@@ -804,7 +969,13 @@ export default function Chat({
 
       {/* Profil/Infos Modal */}
       {showOtherUserProfile && (
-        <div className={`absolute inset-0 z-50 ${groupId?.startsWith('private_') ? 'bg-[#f2f3f5]' : 'bg-white'} flex flex-col`}>
+        <div className={`absolute inset-0 z-50 ${groupId?.startsWith('private_') || isBotChat ? 'bg-[#f2f3f5]' : 'bg-white'} flex flex-col`}>
+          {isBotChat && botProfile && (
+            <BotProfile
+              bot={botProfile}
+              onClose={() => setShowOtherUserProfile(false)}
+            />
+          )}
 
           {(groupId === 'general' || isCustomGroup || groupId?.startsWith('ai-') || groupId === 'snapchat') && (
             <>
@@ -958,6 +1129,13 @@ export default function Chat({
             handleImageUpload={handleImageUpload} sendMessage={sendMessage} sendVoiceMessage={sendVoiceMessage}
             displayName={displayName} groupId={groupId} fileInputRef={fileInputRef}
             typingUsers={typingUsers} replyingTo={replyingTo} onCancelReply={() => setReplyingTo(null)}
+            installedBotIds={installedBotIds}
+            onInstallBot={(bot) => setBotToInstall({
+              id: bot.id || '',
+              name: bot.name,
+              description: bot.description,
+              photoURL: bot.icon,
+            })}
           />
         </div>
 
@@ -970,6 +1148,7 @@ export default function Chat({
             allGroupUsers={allGroupUsers}
             onlineUsers={onlineUsers}
             currentUserId={user?.uid || ''}
+            installedBots={customGroupData?.installedBots || []}
             onStartPrivateChat={onStartPrivateChat}
           />
         )}
@@ -993,6 +1172,36 @@ export default function Chat({
       </div>
 
       {showCreateGroupModal && <CreateGroupModal user={user} onClose={() => setShowCreateGroupModal(false)} onGroupCreated={() => setShowCreateGroupModal(false)} />}
+      {botToInstall && user && (
+        <BotInstallModal
+          bot={botToInstall}
+          user={user}
+          groups={isCustomGroup && customGroupData ? [{
+            id: customGroupData.id || groupId || '',
+            name: customGroupData.name || displayName,
+            photoURL: customGroupData.photoURL || '',
+            createdBy: customGroupData.createdBy,
+            admins: customGroupData.admins || [],
+            members: customGroupData.members || [],
+            installedBots: customGroupData.installedBots || [],
+          } as BotInstallGroup] : []}
+          initialGroup={isCustomGroup && customGroupData ? {
+            id: customGroupData.id || groupId || '',
+            name: customGroupData.name || displayName,
+            photoURL: customGroupData.photoURL || '',
+            createdBy: customGroupData.createdBy,
+            admins: customGroupData.admins || [],
+            members: customGroupData.members || [],
+            installedBots: customGroupData.installedBots || [],
+          } as BotInstallGroup : null}
+          onClose={() => setBotToInstall(null)}
+          onInstalled={(result) => {
+            if (result.target === 'personal' && result.chatId) {
+              onOpenBotChat?.(result.chatId, { name: botToInstall.name, avatar: botToInstall.photoURL });
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

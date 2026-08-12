@@ -124,6 +124,45 @@ header, nav,
 .typing-dot:nth-child(2) { animation-delay: 0.4s; }
 .typing-dot:nth-child(3) { animation-delay: 0.8s; }
 
+@keyframes contactTypingDot {
+  0%, 60%, 100% {
+    opacity: 0.35;
+    transform: translateY(0) scale(0.82);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1);
+  }
+}
+
+@keyframes contactTypingPreview {
+  from {
+    opacity: 0.55;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.contact-typing-preview {
+  animation: contactTypingPreview 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.contact-typing-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: contactTypingDot 1.15s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.contact-typing-dot:nth-child(1) { animation-delay: 0s; }
+.contact-typing-dot:nth-child(2) { animation-delay: 0.16s; }
+.contact-typing-dot:nth-child(3) { animation-delay: 0.32s; }
+
 /* Feedback doux lors de la pause ou de la reprise d'un statut */
 @keyframes statusPlaybackFeedback {
   0% {
@@ -165,7 +204,45 @@ header, nav,
   will-change: opacity, transform;
 }
 
+@keyframes incomingCallPopupEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -18px, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes incomingCallPopupExit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -12px, 0) scale(0.97);
+  }
+}
+
+.incoming-call-popup-enter {
+  animation: incomingCallPopupEnter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+}
+
+.incoming-call-popup-exit {
+  animation: incomingCallPopupExit 260ms cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .incoming-call-popup-enter,
+  .incoming-call-popup-exit,
+  .typing-dot,
+  .contact-typing-preview,
+  .contact-typing-dot,
   .status-playback-feedback,
   .status-item-transition {
     animation-duration: 1ms;

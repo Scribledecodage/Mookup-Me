@@ -21,6 +21,8 @@ import GroupAvatar from '../ui/GroupAvatar';
 import UserAvatar from '../ui/UserAvatar';
 import { buildMeshGradient, buildMeshGradientFromColor, extractColors } from '@/lib/colorUtils';
 import { getUserColor } from '@/lib/getUserColor';
+import { isAdminEmail } from '@/lib/adminConfig';
+import AdminBadge from '@/components/ui/AdminBadge';
 import { supabase } from '@/lib/supabase';
 
 interface GroupMember {
@@ -28,6 +30,7 @@ interface GroupMember {
   displayName?: string;
   nickname?: string;
   photoURL?: string;
+  email?: string;
 }
 
 type FirestoreDate = Date | string | number | { toDate: () => Date };
@@ -174,7 +177,8 @@ export default function GroupProfile({
   // Les groupes officiels utilisent leur image Supabase pour personnaliser la bannière.
   const banner = useGroupBanner(avatarSource, groupId || displayName, officialBannerColor);
   const createdDate = formatDate(customGroupData?.createdAt);
-  const memberCount = isBot || isTeam ? 1 : allGroupUsers.length;
+  const teamAdminMembers = allGroupUsers.filter(member => isAdminEmail(member.email));
+  const memberCount = isBot ? 1 : isTeam ? teamAdminMembers.length + 1 : allGroupUsers.length;
   const isAdmin = isCustomGroup && (customGroupData?.createdBy === currentUserId || customGroupData?.admins?.includes(currentUserId));
   const [isOfficialBadgeOpen, setIsOfficialBadgeOpen] = useState(false);
   const officialBadgeInfo = isBot
@@ -357,13 +361,46 @@ export default function GroupProfile({
                   </div>
                 </div>
               ) : isTeam ? (
-                <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-2">
-                  <img src="/Logo.png" alt="Team Mookup" className="h-10 w-10 rounded-full object-cover" />
-                  <div>
-                    <p className="text-[14px] font-medium text-gray-800">Team Mookup</p>
-                    <p className="text-[12px] text-gray-400">Groupe officiel Mookup</p>
+                teamAdminMembers.length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-2">
+                      <img src="/Logo.png" alt="Team Mookup" className="h-10 w-10 rounded-full object-cover" />
+                      <div>
+                        <p className="text-[14px] font-medium text-gray-800">Team Mookup</p>
+                        <p className="text-[12px] text-gray-400">Groupe officiel Mookup</p>
+                      </div>
+                    </div>
+                    {teamAdminMembers.map(member => {
+                      const name = member.displayName || member.nickname || 'Utilisateur';
+                      return (
+                        <div
+                          key={member.id}
+                          className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-gray-50"
+                          onClick={() => {
+                            if (member.id !== currentUserId && onStartPrivateChat) {
+                              onStartPrivateChat({ uid: member.id, displayName: name, photoURL: member.photoURL });
+                              onClose();
+                            }
+                          }}
+                        >
+                          <UserAvatar uid={member.id} photoURL={member.photoURL || null} displayName={name} size={40} />
+                          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <p className="truncate text-[14px] font-medium text-gray-800">{name}</p>
+                            {isAdminEmail(member.email) && <AdminBadge />}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-2">
+                    <img src="/Logo.png" alt="Team Mookup" className="h-10 w-10 rounded-full object-cover" />
+                    <div>
+                      <p className="text-[14px] font-medium text-gray-800">Team Mookup</p>
+                      <p className="text-[12px] text-gray-400">Groupe officiel Mookup</p>
+                    </div>
+                  </div>
+                )
               ) : allGroupUsers.length > 0 ? (
                 <div className="flex flex-col gap-1">
                   {allGroupUsers.map(member => {

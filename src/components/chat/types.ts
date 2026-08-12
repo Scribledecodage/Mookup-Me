@@ -39,6 +39,7 @@ export interface Message {
   reactions?: Record<string, string>;
   edited?: boolean;
   isDeleted?: boolean;
+  isSystemMessage?: boolean;
   forwardedFrom?: ForwardedFrom;
   replyTo?: ReplyTo;
 }

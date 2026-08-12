@@ -21,6 +21,7 @@ import StatusPage from './pages/StatusPage';
 import SystemPage from './pages/SystemPage';
 import TermsPage from './pages/TermsPage';
 import VoiceVideoPage from './pages/VoiceVideoPage';
+import AdminPage from './pages/AdminPage';
 
 const PROFILE_PAGES = {
   infos: AccountInfoPage,
@@ -45,6 +46,7 @@ const PROFILE_PAGES = {
   'conditions-utilisation': TermsPage,
   confidentialite: PrivacyPage,
   cookies: CookiesPage,
+  administration: AdminPage,
 };
 
 export default function ProfilePage({ section }) {

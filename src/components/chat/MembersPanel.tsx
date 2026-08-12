@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Laptop, DeviceMobile } from '@phosphor-icons/react';
+import { X, Laptop, DeviceMobile, Brain } from '@phosphor-icons/react';
 import UserAvatar from '@/components/ui/UserAvatar';
 import { OnlineUser } from '@/lib/presence';
 import { extractColors, RGB } from '@/lib/colorUtils';
@@ -14,6 +14,7 @@ interface MemberUser {
   photoURL?: string;
   isBddBot?: boolean;
   isTeamMookup?: boolean;
+  isInstalledBot?: boolean;
 }
 
 interface MembersPanelProps {
@@ -23,8 +24,15 @@ interface MembersPanelProps {
   allGroupUsers: MemberUser[];
   onlineUsers: OnlineUser[];
   currentUserId: string;
+  installedBots?: InstalledBot[];
   onStartPrivateChat?: (user: { uid: string; displayName: string; photoURL?: string }) => void;
 }
+
+type InstalledBot = {
+  botId: string;
+  name?: string;
+  photoURL?: string;
+};
 
 // ─── Helper gradient ──────────────────────────────────────────────────────────
 
@@ -44,6 +52,7 @@ const FALLBACK_GRADIENT = 'transparent';
  */
 function useGradientCache(members: MemberUser[]): Record<string, string> {
   const cacheRef = useRef<Record<string, string>>({});
+  const sourceRef = useRef<Record<string, string>>({});
   const [, setVersion] = useState(0);
 
   useEffect(() => {
@@ -51,8 +60,9 @@ function useGradientCache(members: MemberUser[]): Record<string, string> {
 
     // Users sans photo → gradient immédiat depuis getUserColor
     members
-      .filter(u => !u.isBddBot && !u.photoURL && !cacheRef.current[u.id])
+      .filter(u => !u.isBddBot && !u.photoURL && sourceRef.current[u.id] !== '')
       .forEach(u => {
+        sourceRef.current[u.id] = '';
         const hex = getUserColor(u.id);
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
@@ -63,10 +73,14 @@ function useGradientCache(members: MemberUser[]): Record<string, string> {
 
     // Users avec photo → extraction async des couleurs dominantes
     const promises = members
-      .filter(u => !u.isBddBot && u.photoURL && !cacheRef.current[u.id])
+      .filter(u => !u.isBddBot && u.photoURL && sourceRef.current[u.id] !== u.photoURL)
       .map(async u => {
+        const photoURL = u.photoURL!;
+        sourceRef.current[u.id] = photoURL;
         cacheRef.current[u.id] = FALLBACK_GRADIENT;
-        const colors: RGB[] = await extractColors(u.photoURL!);
+        const colors: RGB[] = await extractColors(photoURL);
+        // Ignore an old extraction if the user changed their avatar meanwhile.
+        if (sourceRef.current[u.id] !== photoURL) return;
         cacheRef.current[u.id] =
           colors.length > 0
             ? buildRowGradient(colors[0][0], colors[0][1], colors[0][2], 0.16)
@@ -82,7 +96,7 @@ function useGradientCache(members: MemberUser[]): Record<string, string> {
       setVersion(v => v + 1);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [members.map(u => u.id).join(',')]);
+  }, [members.map(u => `${u.id}:${u.photoURL || ''}`).join('|')]);
 
   return cacheRef.current;
 }
@@ -112,7 +126,8 @@ const MemberRow = React.memo(function MemberRow({
   const [hovered, setHovered] = useState(false);
 
   // Un user offline redevient "visuel online" au hover
-  const showAsOnline = isOnline || (!u.isBddBot && !u.isTeamMookup && hovered);
+  const isBot = Boolean(u.isBddBot || u.isInstalledBot);
+  const showAsOnline = isOnline || (!isBot && !u.isTeamMookup && hovered);
 
   return (
     <div
@@ -120,7 +135,7 @@ const MemberRow = React.memo(function MemberRow({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => {
-        if (u.isBddBot || u.isTeamMookup) return;
+        if (u.isBddBot || u.isInstalledBot || u.isTeamMookup) return;
         if (onStartPrivateChat)
           onStartPrivateChat({ uid: u.id, displayName: name || 'Anonyme', photoURL: u.photoURL });
         onClose();
@@ -139,10 +154,14 @@ const MemberRow = React.memo(function MemberRow({
 
         {/* Avatar */}
         <div className="relative flex-shrink-0 z-10">
-          <div className={`w-10 h-10 rounded-full overflow-hidden flex items-center justify-center transition-all duration-300 ${!u.isBddBot && !u.isTeamMookup && !showAsOnline ? 'grayscale opacity-40' : ''}`}>
+          <div className={`w-10 h-10 rounded-full overflow-hidden flex items-center justify-center transition-all duration-300 ${!isBot && !u.isTeamMookup && !showAsOnline ? 'grayscale opacity-40' : ''}`}>
             {u.isBddBot ? (
               <div className="w-full h-full bg-[#6366f1] flex items-center justify-center">
                 <img src="/BDDBOT.png" alt="BDD Bot" className="w-full h-full object-contain p-0.5" />
+              </div>
+            ) : u.isInstalledBot ? (
+              <div className="flex h-full w-full items-center justify-center bg-indigo-50">
+                {u.photoURL ? <img src={u.photoURL} alt={name || 'Bot installé'} className="h-full w-full object-cover" /> : <Brain size={22} weight="duotone" className="text-indigo-500" aria-hidden="true" />}
               </div>
             ) : u.isTeamMookup ? (
               <img src="/Logo.png" alt="Team Mookup" className="w-full h-full object-cover" />
@@ -151,8 +170,13 @@ const MemberRow = React.memo(function MemberRow({
             )}
           </div>
 
+          {/* Badge bleu permanent pour les bots installés dans ce serveur. */}
+          {u.isInstalledBot ? (
+            <span className="absolute -bottom-0.5 -right-0.5 z-20 h-[11px] w-[11px] rounded-full border-2 border-white bg-[#5865f2] shadow-sm" title="Bot installé dans ce serveur" aria-label="Bot installé dans ce serveur" />
+          ) : null}
+
           {/* Pastille statut */}
-          {!u.isBddBot && !u.isTeamMookup && (
+          {!u.isBddBot && !u.isInstalledBot && !u.isTeamMookup && (
             showAsOnline ? (
               device ? (
                 <div
@@ -171,7 +195,7 @@ const MemberRow = React.memo(function MemberRow({
         </div>
 
         {/* Pseudo */}
-        <span className={`flex-1 min-w-0 text-[14px] font-medium truncate leading-tight z-10 transition-colors duration-300 ${!u.isBddBot && !u.isTeamMookup && !showAsOnline ? 'text-gray-400' : 'text-gray-800'}`} style={{ fontFamily: 'var(--font-dm-sans), "DM Sans", sans-serif' }}>
+        <span className={`flex-1 min-w-0 text-[14px] font-medium truncate leading-tight z-10 transition-colors duration-300 ${!isBot && !u.isTeamMookup && !showAsOnline ? 'text-gray-400' : 'text-gray-800'}`} style={{ fontFamily: 'var(--font-dm-sans), "DM Sans", sans-serif' }}>
           {name || <span className="text-gray-400 italic text-[13px]">Utilisateur</span>}
         </span>
       </div>
@@ -188,6 +212,7 @@ export default function MembersPanel({
   allGroupUsers,
   onlineUsers,
   currentUserId,
+  installedBots = [],
   onStartPrivateChat,
 }: MembersPanelProps) {
   // Animation state
@@ -236,6 +261,14 @@ export default function MembersPanel({
       };
 
   const regularUsers = isTeamMookup ? [] : allGroupUsers.filter(u => u.id !== 'bddbot');
+  const installedBotMembers: MemberUser[] = installedBots
+    .filter(bot => Boolean(bot.botId))
+    .map(bot => ({
+      id: `installed-bot-${bot.botId}`,
+      displayName: bot.name || 'Bot installé',
+      photoURL: bot.photoURL || undefined,
+      isInstalledBot: true,
+    }));
 
   const knownIds = new Set(regularUsers.map(u => u.id));
   const presenceOnlyUsers: MemberUser[] = onlineUsers
@@ -244,8 +277,8 @@ export default function MembersPanel({
 
   const allMembers = [...regularUsers, ...presenceOnlyUsers];
 
-  // Cache stable : ne se recalcule pas quand la liste se réordonne
-  const gradientCache = useGradientCache(allMembers);
+  // Les bots installés utilisent le même calcul de couleur que les bannières de profil.
+  const gradientCache = useGradientCache([...installedBotMembers, ...allMembers]);
 
   const online  = allMembers.filter(u => onlineUids.has(u.id));
   const offline = allMembers.filter(u => !onlineUids.has(u.id));
@@ -309,6 +342,20 @@ export default function MembersPanel({
             <Section label={isTeamMookup ? 'Groupe officiel' : 'Bot officiel de Mookup'} count={1}>
               <MemberRow u={officialMember} gradient={BDD_BOT_GRADIENT} {...sharedProps} />
             </Section>
+
+            {/* Bots installés dans ce serveur */}
+            {installedBotMembers.length > 0 && (
+              <Section label="Bots installés" count={installedBotMembers.length}>
+                {installedBotMembers.map(bot => (
+                  <MemberRow
+                    key={bot.id}
+                    u={bot}
+                    gradient={bot.photoURL ? (gradientCache[bot.id] ?? BDD_BOT_GRADIENT) : BDD_BOT_GRADIENT}
+                    {...sharedProps}
+                  />
+                ))}
+              </Section>
+            )}
 
             {/* En ligne */}
             {online.length > 0 && (

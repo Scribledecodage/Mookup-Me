@@ -1,19 +1,18 @@
-import { db, auth } from './firebase';
-import { 
+import { db } from './firebase';
+import {
+  collection,
   doc,
   getDoc,
-  setDoc, 
-  serverTimestamp, 
   onSnapshot,
-  collection,
-  Timestamp
+  serverTimestamp,
+  setDoc,
+  Timestamp,
 } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-// Heartbeat interval in milliseconds (20 seconds)
-const HEARTBEAT_INTERVAL = 20000;
-// Max age of a heartbeat to consider a user online (45 seconds)
-const ONLINE_THRESHOLD = 45000;
+// Présence conservée dans Firestore, mais avec un seul heartbeat et un seul listener partagé.
+const HEARTBEAT_INTERVAL = 30000;
+const ONLINE_THRESHOLD = 75000;
 
 export interface OnlineUser {
   uid: string;
@@ -21,92 +20,214 @@ export interface OnlineUser {
   typingIn?: string | null;
   displayName?: string;
   device?: 'phone' | 'desktop';
+  lastSeen?: number;
 }
 
-export function usePresence(uid: string | undefined, displayName?: string | null) {
-  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+type PresenceEntry = {
+  uid: string;
+  state?: string;
+  displayName?: string | null;
+  isTyping?: boolean;
+  typingIn?: string | null;
+  device?: 'phone' | 'desktop';
+  visible?: boolean;
+  showLastActivity?: boolean;
+  lastSeen?: number;
+};
 
-  useEffect(() => {
-    if (!uid) return;
+type PresenceListener = (users: OnlineUser[]) => void;
 
-    const userRef = doc(db, 'status', uid);
-    let activityPrivacy = { showOnlineStatus: true, showLastActivity: true };
+type PresenceStore = {
+  uid: string;
+  displayName?: string | null;
+  listeners: Set<PresenceListener>;
+  onlineUsers: OnlineUser[];
+  updateHeartbeat: (isTypingStatus?: boolean, typingInGroupId?: string | null) => Promise<void>;
+  stop: () => void;
+};
 
-    // Function to update presence and heartbeat
-    const updateHeartbeat = async (isTypingStatus?: boolean, typingInGroupId?: string | null) => {
-      const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      const deviceType = isMobile ? 'phone' : 'desktop';
+const presenceStores = new Map<string, PresenceStore>();
 
-      await setDoc(userRef, {
-        state: 'online',
-        displayName: displayName || null,
-        lastSeen: serverTimestamp(),
-        isTyping: isTypingStatus ?? false,
-        typingIn: typingInGroupId ?? null,
-        device: deviceType,
-        visible: activityPrivacy.showOnlineStatus,
-        showLastActivity: activityPrivacy.showLastActivity,
-      }, { merge: true });
+function toMillis(value: unknown): number | undefined {
+  if (value instanceof Timestamp) return value.toMillis();
+  if (value && typeof (value as { toMillis?: unknown }).toMillis === 'function') {
+    return (value as { toMillis: () => number }).toMillis();
+  }
+  if (typeof value === 'number') return value;
+  return undefined;
+}
+
+function createPresenceStore(uid: string, displayName?: string | null): PresenceStore {
+  const listeners = new Set<PresenceListener>();
+  const presenceEntries = new Map<string, PresenceEntry>();
+  let activityPrivacy = { showOnlineStatus: true, showLastActivity: true };
+  let isActive = true;
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+  let unsubscribeStatuses: (() => void) | null = null;
+  let currentTyping = { isTyping: false, typingIn: null as string | null };
+
+  const notify = () => {
+    const now = Date.now();
+    const online = Array.from(presenceEntries.values())
+      .filter(entry => {
+        const lastSeen = entry.lastSeen;
+        return entry.state === 'online'
+          && entry.visible !== false
+          && typeof lastSeen === 'number'
+          && now - lastSeen < ONLINE_THRESHOLD;
+      })
+      .map(entry => ({
+        uid: entry.uid,
+        isTyping: entry.isTyping === true,
+        typingIn: entry.typingIn || null,
+        displayName: entry.displayName || undefined,
+        device: entry.device,
+        lastSeen: entry.lastSeen,
+      }));
+
+    store.onlineUsers = online;
+    listeners.forEach(listener => listener(online));
+  };
+
+  const writePresence = async (isTypingStatus?: boolean, typingInGroupId?: string | null) => {
+    if (!isActive) return;
+    if (typeof isTypingStatus === 'boolean') {
+      currentTyping = {
+        isTyping: isTypingStatus,
+        typingIn: isTypingStatus ? typingInGroupId ?? null : null,
+      };
+    }
+
+    const isMobile = typeof navigator !== 'undefined'
+      && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const lastSeen = Date.now();
+    const localEntry: PresenceEntry = {
+      uid,
+      state: 'online',
+      displayName: store.displayName,
+      isTyping: currentTyping.isTyping,
+      typingIn: currentTyping.typingIn,
+      device: isMobile ? 'phone' : 'desktop',
+      visible: activityPrivacy.showOnlineStatus,
+      showLastActivity: activityPrivacy.showLastActivity,
+      lastSeen,
     };
+    presenceEntries.set(uid, localEntry);
+    notify();
 
-    // Charger les préférences avant de publier la présence.
-    getDoc(doc(db, 'users', uid)).then((snapshot) => {
+    await setDoc(doc(db, 'status', uid), {
+      state: 'online',
+      displayName: store.displayName || null,
+      lastSeen: serverTimestamp(),
+      isTyping: currentTyping.isTyping,
+      typingIn: currentTyping.typingIn,
+      device: localEntry.device,
+      visible: activityPrivacy.showOnlineStatus,
+      showLastActivity: activityPrivacy.showLastActivity,
+    }, { merge: true });
+  };
+
+  const store: PresenceStore = {
+    uid,
+    displayName,
+    listeners,
+    onlineUsers: [],
+    updateHeartbeat: writePresence,
+    stop: () => {
+      if (!isActive) return;
+      isActive = false;
+      if (heartbeat) clearInterval(heartbeat);
+      unsubscribeStatuses?.();
+      unsubscribeStatuses = null;
+      listeners.clear();
+      presenceEntries.clear();
+      void setDoc(doc(db, 'status', uid), {
+        state: 'offline',
+        isTyping: false,
+        typingIn: null,
+        lastSeen: serverTimestamp(),
+      }, { merge: true });
+    },
+  };
+
+  presenceStores.set(uid, store);
+
+  unsubscribeStatuses = onSnapshot(collection(db, 'status'), snapshot => {
+    if (!isActive) return;
+    snapshot.docs.forEach(statusDoc => {
+      const data = statusDoc.data();
+      const lastSeen = toMillis(data.lastSeen);
+      presenceEntries.set(statusDoc.id, {
+        uid: statusDoc.id,
+        state: data.state,
+        displayName: data.displayName,
+        isTyping: data.isTyping,
+        typingIn: data.typingIn || null,
+        device: data.device,
+        visible: data.visible,
+        showLastActivity: data.showLastActivity,
+        lastSeen,
+      });
+    });
+    notify();
+  }, error => {
+    console.warn('Présence Firestore indisponible:', error);
+  });
+
+  channelPrivacyAndStart();
+
+  function channelPrivacyAndStart() {
+    getDoc(doc(db, 'users', uid)).then(snapshot => {
+      if (!isActive) return;
       const savedPrivacy = snapshot.data()?.activityPrivacy || {};
       activityPrivacy = {
         showOnlineStatus: savedPrivacy.showOnlineStatus !== false,
         showLastActivity: savedPrivacy.showLastActivity !== false,
       };
-      return updateHeartbeat();
-    }).catch(() => updateHeartbeat());
-
-    // Start heartbeat interval
-    const interval = setInterval(() => {
-      // On met à jour le heartbeat sans toucher au statut isTyping
-      setDoc(userRef, {
-        lastSeen: serverTimestamp(),
-        visible: activityPrivacy.showOnlineStatus,
-        showLastActivity: activityPrivacy.showLastActivity,
-      }, { merge: true });
-    }, HEARTBEAT_INTERVAL);
-
-    // Listen to all statuses with heartbeat validation
-    const q = collection(db, 'status');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const now = Date.now();
-      const online = snapshot.docs
-        .filter(doc => {
-          const data = doc.data();
-          if (data.state !== 'online' || data.visible === false) return false;
-          
-          // Check if heartbeat is still fresh
-          const lastSeen = data.lastSeen as Timestamp;
-          if (!lastSeen) return false;
-          
-          return (now - lastSeen.toDate().getTime()) < ONLINE_THRESHOLD;
-        })
-        .map(doc => ({
-          uid: doc.id,
-          isTyping: doc.data().isTyping,
-          typingIn: doc.data().typingIn || null,
-          displayName: doc.data().displayName,
-          device: doc.data().device as 'phone' | 'desktop' | undefined
-        }));
-      setOnlineUsers(online);
+      void writePresence();
+    }).catch(() => {
+      void writePresence();
     });
+  }
 
-    // Cleanup interval on unmount
+  heartbeat = setInterval(() => {
+    void writePresence();
+  }, HEARTBEAT_INTERVAL);
+
+  return store;
+}
+
+export function usePresence(uid: string | undefined, displayName?: string | null) {
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const storeRef = useRef<PresenceStore | null>(null);
+
+  useEffect(() => {
+    if (!uid) return;
+
+    const store = presenceStores.get(uid) || createPresenceStore(uid, displayName);
+    store.displayName = displayName;
+    storeRef.current = store;
+    store.listeners.add(setOnlineUsers);
+
     return () => {
-      clearInterval(interval);
-      unsubscribe();
-      setDoc(userRef, { state: 'offline', lastSeen: serverTimestamp(), isTyping: false, typingIn: null }, { merge: true });
+      store.listeners.delete(setOnlineUsers);
+      storeRef.current = null;
+      if (store.listeners.size === 0) {
+        store.stop();
+        presenceStores.delete(uid);
+      }
     };
   }, [uid, displayName]);
 
-  const setTyping = async (isTyping: boolean, groupId: string | null = null) => {
-    if (!uid) return;
-    const userRef = doc(db, 'status', uid);
-    await setDoc(userRef, { isTyping, typingIn: isTyping ? groupId : null, lastSeen: serverTimestamp() }, { merge: true });
-  };
+  const setTyping = useCallback(async (isTyping: boolean, groupId: string | null = null) => {
+    const store = storeRef.current;
+    if (!store || !uid) return;
+    try {
+      await store.updateHeartbeat(isTyping, isTyping ? groupId : null);
+    } catch (error) {
+      console.warn('Impossible de mettre à jour la présence :', error);
+    }
+  }, [uid]);
 
   return { onlineUsers, setTyping };
 }

@@ -25,10 +25,16 @@ const db = initializeFirestore(app, {
 
 const auth = getAuth(app);
 
+// Auth séparée pour l’espace admin : se connecter comme admin ne remplace pas la session utilisateur principale.
+const adminClientApp = getApps().find(existingApp => existingApp.name === 'admin-client')
+  ?? initializeApp(firebaseConfig, 'admin-client');
+const adminAuth = getAuth(adminClientApp);
+const adminDb = getFirestore(adminClientApp);
+
 // Initialize Analytics conditionally (only in browser)
 let analytics;
 if (typeof window !== 'undefined') {
   isSupported().then(yes => yes ? (analytics = getAnalytics(app)) : null);
 }
 
-export { app, db, auth, analytics };
+export { app, db, auth, adminAuth, adminDb, analytics };

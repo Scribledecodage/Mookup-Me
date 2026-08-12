@@ -37,6 +37,7 @@ interface HomeViewProps {
   user?: any;
   onSelectGroup: (groupId: string | null, data?: { name: string, avatar?: string }) => void;
   onTabChange?: (tabId: string) => void;
+  botSection?: BotSection;
   onBotSectionChange?: (section: BotSection) => void;
   onProfileSectionChange?: (section: ProfileSection) => void;
   selectedGroupId?: string | null;
@@ -44,9 +45,10 @@ interface HomeViewProps {
   onMobileOpenContent?: (tab: 'bots' | 'profil', section?: string) => void;
 }
 
-export default function HomeView({ user, onSelectGroup, onTabChange, onBotSectionChange, onProfileSectionChange, selectedGroupId, onMobileOpenContent }: HomeViewProps) {
+export default function HomeView({ user, onSelectGroup, onTabChange, botSection: controlledBotSection, onBotSectionChange, onProfileSectionChange, selectedGroupId, onMobileOpenContent }: HomeViewProps) {
   const [activeTab, setActiveTab] = useState('discussion');
-  const [botSection, setBotSection] = useState<BotSection>('accueil');
+  const [localBotSection, setLocalBotSection] = useState<BotSection>('accueil');
+  const botSection = controlledBotSection ?? localBotSection;
   const [profileSection, setProfileSection] = useState<ProfileSection>('infos');
   const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
   const [lastMessageTimes, setLastMessageTimes] = useState<{ [key: string]: string }>({});
@@ -222,11 +224,12 @@ export default function HomeView({ user, onSelectGroup, onTabChange, onBotSectio
   useEffect(() => {
     if (!user) return;
 
-    // On limite aux 50 derniers messages pour les performances
+    // Le badge d’activité n’a besoin que des messages récents.
+    // Limiter ce listener réduit les lectures sans toucher aux messages de la conversation ouverte.
     const q = query(
       collection(db, 'messages'),
       orderBy('createdAt', 'desc'),
-      limit(50)
+      limit(20)
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -502,11 +505,11 @@ export default function HomeView({ user, onSelectGroup, onTabChange, onBotSectio
             <BotView
               activeSection={botSection}
               onSelectSection={(s) => {
-                setBotSection(s);
+                setLocalBotSection(s);
                 if (onBotSectionChange) onBotSectionChange(s);
               }}
               onMobileNavigate={(s) => {
-                setBotSection(s);
+                setLocalBotSection(s);
                 if (onBotSectionChange) onBotSectionChange(s);
                 onMobileOpenContent?.('bots', s);
               }}

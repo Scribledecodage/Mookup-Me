@@ -2,10 +2,13 @@
 
 import React from 'react';
 import { openImageInTab, openMediaInTab } from '@/lib/openImageInTab';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { ReplyTo } from './types';
 import { GifPicker, type Gif, type GifCategory, type GifProvider } from 'gif-picker-react';
 
 import { 
+  Brain,
   Plus, 
   CircleNotch, 
   Microphone,
@@ -13,7 +16,8 @@ import {
   Sticker, 
   Smiley, 
   PaperPlaneRight, 
-  SquaresFour, 
+  SquaresFour,
+  MagnifyingGlass,
   Trash, 
   Eye, 
   PencilSimple,
@@ -184,6 +188,49 @@ const getAttachmentIcon = (file: AttachmentFile) => {
 
 const CATEGORY_PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"%3E%3Crect width="120" height="120" rx="24" fill="%23e8ebff"/%3E%3Cpath d="M38 78l17-20 12 13 8-9 17 16H38z" fill="%235866e8"/%3E%3Ccircle cx="47" cy="43" r="8" fill="%235866e8"/%3E%3C/svg%3E';
 
+export type BotDirectoryItem = {
+  id?: string;
+  slug?: string;
+  name: string;
+  description: string;
+  icon?: string;
+  emoji?: string;
+  iconClass: string;
+};
+
+const BOT_DIRECTORY: BotDirectoryItem[] = [
+  {
+    name: 'BDD Bot',
+    description: 'L’assistant intelligent idéal pour votre serveur. Réactif, il gère vos données.',
+    icon: '/BDDBOT.png',
+    iconClass: 'bg-[#6366f1]',
+  },
+];
+
+const PROMOTED_BOTS = [
+  { name: 'BDD Bot', description: 'L’assistant intelligent déjà disponible dans tous vos groupes.', icon: '/BDDBOT.png', emoji: '', visual: 'bg-[#6366f1]', iconClass: 'bg-[#6366f1]' },
+];
+
+function BotDirectoryIcon({ item }: { item: BotDirectoryItem | (typeof PROMOTED_BOTS)[number] }) {
+  if ('icon' in item && item.icon) {
+    return <img src={item.icon} alt="" className="h-full w-full rounded-xl object-cover" />;
+  }
+
+  if (!item.emoji) {
+    return (
+      <span className={`flex h-full w-full items-center justify-center rounded-xl ${item.iconClass}`} aria-hidden="true">
+        <Brain size={28} weight="duotone" className="text-gray-500" />
+      </span>
+    );
+  }
+
+  return (
+    <span className={`flex h-full w-full items-center justify-center rounded-xl ${item.iconClass} text-[26px]`} aria-hidden="true">
+      {item.emoji}
+    </span>
+  );
+}
+
 const GIF_CATEGORIES: MediaCategory[] = [
   { name: 'Réactions', searchTerm: 'reaction funny' },
   { name: 'Drôle', searchTerm: 'funny comedy' },
@@ -296,6 +343,8 @@ interface ChatInputProps {
   typingUsers?: { uid: string; displayName?: string }[];
   replyingTo?: ReplyTo | null;
   onCancelReply: () => void;
+  onInstallBot?: (bot: BotDirectoryItem) => void;
+  installedBotIds?: string[];
 }
 
 export default function ChatInput({
@@ -319,6 +368,8 @@ export default function ChatInput({
   typingUsers = [],
   replyingTo,
   onCancelReply,
+  onInstallBot,
+  installedBotIds = [],
 }: ChatInputProps) {
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
   const [emojiCategory, setEmojiCategory] = React.useState<EmojiCategory>('Tous');
@@ -326,7 +377,11 @@ export default function ChatInput({
   const [emojiSearch, setEmojiSearch] = React.useState('');
   const [showGifPicker, setShowGifPicker] = React.useState(false);
   const [showStickerPicker, setShowStickerPicker] = React.useState(false);
+  const [showBotsPicker, setShowBotsPicker] = React.useState(false);
+  const [botSearch, setBotSearch] = React.useState('');
+  const [customBots, setCustomBots] = React.useState<BotDirectoryItem[]>([]);
   const emojiPickerRef = React.useRef<HTMLDivElement>(null);
+  const botsPickerRef = React.useRef<HTMLDivElement>(null);
   const emojiGridRef = React.useRef<HTMLDivElement>(null);
   const emojiSectionRefs = React.useRef<Record<string, HTMLElement | null>>({});
   const gifPickerRef = React.useRef<HTMLDivElement>(null);
@@ -357,9 +412,41 @@ export default function ChatInput({
   const stickerLoadingMoreRef = React.useRef(false);
   const gifResultsCache = React.useRef(new Map<string, { items: Gif[]; nextPage: number; hasNext: boolean }>());
   const stickerResultsCache = React.useRef(new Map<string, { items: Gif[]; nextPage: number; hasNext: boolean }>());
+  const availableBots = [BOT_DIRECTORY[0], ...customBots];
+  const getBotMention = (item: BotDirectoryItem) => item.slug || item.name.toLowerCase().replace(/\s+/g, '');
+  const selectBot = (item: BotDirectoryItem) => {
+    if (item.id && !installedBotIds.includes(item.id)) {
+      onInstallBot?.(item);
+      setShowBotsPicker(false);
+      return;
+    }
+    setNewMessage(`@${getBotMention(item)} `);
+    setShowBotsPicker(false);
+  };
 
   React.useEffect(() => {
-    if (!showEmojiPicker && !showGifPicker && !showStickerPicker) return;
+    const botsQuery = query(collection(db, 'bots'), where('isPublic', '==', true));
+    return onSnapshot(botsQuery, snapshot => {
+      setCustomBots(snapshot.docs.map(botDocument => {
+        const bot = botDocument.data();
+        return {
+          id: botDocument.id,
+          name: typeof bot.name === 'string' ? bot.name : 'Bot personnalisé',
+          description: typeof bot.description === 'string' ? bot.description : 'Bot personnalisé Mookup.',
+          icon: typeof bot.photoURL === 'string' && bot.photoURL !== '/Logo.png' ? bot.photoURL : '',
+          iconClass: 'bg-gray-100',
+          emoji: '',
+          slug: typeof bot.slug === 'string' ? bot.slug : '',
+        } as BotDirectoryItem;
+      }));
+    }, error => {
+      console.warn('Bots personnalisés indisponibles dans le sélecteur:', error);
+      setCustomBots([]);
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (!showEmojiPicker && !showGifPicker && !showStickerPicker && !showBotsPicker) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -372,11 +459,14 @@ export default function ChatInput({
       if (showStickerPicker && stickerPickerRef.current && !stickerPickerRef.current.contains(target)) {
         setShowStickerPicker(false);
       }
+      if (showBotsPicker && botsPickerRef.current && !botsPickerRef.current.contains(target)) {
+        setShowBotsPicker(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showEmojiPicker, showGifPicker, showStickerPicker]);
+  }, [showEmojiPicker, showGifPicker, showStickerPicker, showBotsPicker]);
 
   const handleEmojiSelect = (emoji: string) => {
     setNewMessage(`${newMessage}${emoji}`);
@@ -856,7 +946,7 @@ export default function ChatInput({
           </div>
         </div>
       ) : (
-        <div className={`flex flex-col rounded-2xl transition-all duration-200 ${showEmojiPicker || showGifPicker || showStickerPicker ? 'overflow-visible' : 'overflow-hidden'} ${
+        <div className={`flex flex-col rounded-2xl transition-all duration-200 ${showEmojiPicker || showGifPicker || showStickerPicker || showBotsPicker ? 'overflow-visible' : 'overflow-hidden'} ${
           isDragging ? 'bg-blue-100 border border-blue-300' : 'bg-[#f2f3f5] border border-transparent'
         }`}>
         {replyingTo && (
@@ -1014,18 +1104,16 @@ export default function ChatInput({
                 onChange={handleInputChange}
                 onPaste={handlePaste}
                 placeholder={`Envoyer un message dans # | ${displayName}`}
-                className={`w-full py-2 bg-transparent border-none outline-none text-[15px] placeholder-[#87888c] ${
-                  !groupId?.startsWith('ai-') && newMessage.trim().startsWith('/bddbot')
-                    ? 'text-blue-500'
-                    : 'text-[#060607]'
+                className={`w-full py-2 bg-transparent border-none outline-none text-[15px] placeholder-[#87888c] caret-[#060607] ${
+                  /^@bddbot\b/i.test(newMessage) ? 'text-transparent' : 'text-[#060607]'
                 }`}
               />
               )}
-              {/* Overlay /bddbot */}
-              {!isVoiceMode && !groupId?.startsWith('ai-') && newMessage.startsWith('/bddbot') && (
+              {/* Seul @bddbot est bleu ; le reste du message garde son style normal. */}
+              {!isVoiceMode && /^@bddbot\b/i.test(newMessage) && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none text-[15px]">
-                  <span className="text-blue-500">/bddbot</span>
-                  <span className="text-transparent">{newMessage.substring(7)}</span>
+                  <span className="font-medium text-blue-600">{newMessage.slice(0, 7)}</span>
+                  <span className="text-[#060607]">{newMessage.substring(7)}</span>
                 </div>
               )}
             </div>
@@ -1053,7 +1141,7 @@ export default function ChatInput({
                 </button>
               )}
 
-              <div ref={gifPickerRef} className="relative" onScrollCapture={handleGifPickerScroll}>
+              <div ref={gifPickerRef} className="relative hidden md:block" onScrollCapture={handleGifPickerScroll}>
                 {showGifPicker && (
                   <div className="fixed inset-x-2 bottom-20 z-50 mx-auto w-auto max-w-[360px] overflow-hidden rounded-xl shadow-[0_8px_28px_rgba(0,0,0,0.18)] sm:absolute sm:inset-x-auto sm:bottom-[calc(100%+0.5rem)] sm:right-0 sm:w-[360px]">
                     <GifPicker
@@ -1082,6 +1170,7 @@ export default function ChatInput({
                     setShowGifPicker(previous => !previous);
                     setShowEmojiPicker(false);
                     setShowStickerPicker(false);
+                    setShowBotsPicker(false);
                   }}
                   className={`flex h-10 w-10 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${showGifPicker ? 'bg-blue-100 text-blue-600' : 'text-[#6d6f78] hover:bg-[#e3e5e8] hover:text-[#060607]'}`}
                   title="GIFs"
@@ -1092,7 +1181,7 @@ export default function ChatInput({
                 </button>
               </div>
 
-              <div ref={stickerPickerRef} className="relative" onScrollCapture={handleStickerPickerScroll}>
+              <div ref={stickerPickerRef} className="relative hidden md:block" onScrollCapture={handleStickerPickerScroll}>
                 {showStickerPicker && (
                   <div className="fixed inset-x-2 bottom-20 z-50 mx-auto w-auto max-w-[360px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_8px_28px_rgba(0,0,0,0.18)] sm:absolute sm:inset-x-auto sm:bottom-[calc(100%+0.5rem)] sm:right-0 sm:w-[360px]">
                     <GifPicker
@@ -1121,6 +1210,7 @@ export default function ChatInput({
                     setShowStickerPicker(previous => !previous);
                     setShowEmojiPicker(false);
                     setShowGifPicker(false);
+                    setShowBotsPicker(false);
                   }}
                   className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${showStickerPicker ? 'bg-blue-100 text-blue-600' : 'text-[#6d6f78] hover:text-[#060607] hover:bg-[#e3e5e8]'}`}
                   title="Stickers"
@@ -1204,6 +1294,7 @@ export default function ChatInput({
                     setShowEmojiPicker(previous => !previous);
                     setShowGifPicker(false);
                     setShowStickerPicker(false);
+                    setShowBotsPicker(false);
                   }}
                   className={`w-10 h-10 flex items-center justify-center rounded-full transition-colors ${showEmojiPicker ? 'bg-blue-100 text-blue-600' : 'text-[#6d6f78] hover:text-[#060607] hover:bg-[#e3e5e8]'}`}
                   title="Emojis"
@@ -1235,14 +1326,124 @@ export default function ChatInput({
                 >
                   <PaperPlaneRight size={20} />
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  className="w-10 h-10 flex items-center justify-center rounded-full text-[#6d6f78] hover:text-[#060607] hover:bg-[#e3e5e8] transition-colors"
-                  title="Apps"
-                >
-                  <SquaresFour size={20} />
-                </button>
+              ) : (groupId === 'general' || groupId?.startsWith('ai-') || groupId?.startsWith('botchat_')) ? null : (
+                <div ref={botsPickerRef} className="relative hidden md:block">
+                  {showBotsPicker && (
+                    <div className="fixed inset-x-2 top-2 bottom-20 z-50 flex min-h-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-3 shadow-[0_8px_28px_rgba(0,0,0,0.18)] sm:absolute sm:inset-x-auto sm:top-auto sm:bottom-[calc(100%+0.5rem)] sm:right-0 sm:h-[min(520px,calc(100dvh-6rem))] sm:w-[min(520px,calc(100vw-2rem))] sm:rounded-2xl sm:p-4">
+                      <div className="min-h-0 flex-1 overflow-y-auto">
+                        <label className="mx-2 flex h-[42px] items-center gap-2.5 rounded-lg border border-gray-200 bg-white px-3 transition-colors focus-within:border-indigo-500 focus-within:shadow-[0_0_0_3px_rgba(99,102,241,0.08)]">
+                          <MagnifyingGlass size={19} className="flex-shrink-0 text-gray-800" />
+                          <input
+                            type="search"
+                            value={botSearch}
+                            onChange={event => setBotSearch(event.target.value)}
+                            placeholder="Rechercher des applications et des commandes"
+                            className="min-w-0 flex-1 bg-transparent text-[14px] text-gray-800 outline-none placeholder:text-gray-500"
+                            aria-label="Rechercher des applications et des commandes"
+                          />
+                        </label>
+
+                        {!botSearch.trim() && (
+                          <section className="mt-7">
+                            <h3 className="mb-3 text-[18px] font-medium text-gray-900">Récentes</h3>
+                            <div className="flex items-center gap-3">
+                              {availableBots.map(item => (
+                                <button
+                                  key={item.name}
+                                  type="button"
+                                  onClick={() => selectBot(item)}
+                                  className="h-14 w-14 flex-shrink-0 rounded-2xl p-0.5 transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                                  title={item.name}
+                                >
+                                  <BotDirectoryIcon item={item} />
+                                </button>
+                              ))}
+                            </div>
+                          </section>
+                        )}
+
+                        <section className="mt-10">
+                          <h3 className="mb-3 text-[18px] font-medium text-gray-900">Applications sur ce serveur</h3>
+                          <div className="overflow-hidden rounded-2xl bg-gray-50/70">
+                            {availableBots.filter(item => {
+                              const query = botSearch.trim().toLocaleLowerCase();
+                              return !query || `${item.name} ${item.description}`.toLocaleLowerCase().includes(query);
+                            }).slice(0, 2).map(item => (
+                              <button
+                                key={item.name}
+                                type="button"
+                                onClick={() => selectBot(item)}
+                                className="flex w-full items-center gap-4 border-b border-gray-200/80 bg-white px-4 py-4 text-left transition-colors last:border-b-0 hover:bg-gray-50"
+                              >
+                                <span className="h-12 w-12 flex-shrink-0 rounded-xl p-0.5">
+                                  <BotDirectoryIcon item={item} />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-[16px] font-semibold text-gray-900">{item.name}</span>
+                                  <span className="block truncate text-[14px] text-gray-500">{item.description}</span>
+                                </span>
+                                {item.id && <span className={`flex-shrink-0 text-[12px] font-semibold ${installedBotIds.includes(item.id) ? 'text-emerald-600' : 'text-indigo-600'}`}>{installedBotIds.includes(item.id) ? 'Utiliser' : 'Installer'}</span>}
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+
+                        <section className="mt-12">
+                          <h3 className="mb-3 text-[18px] font-medium text-gray-900">Promotions</h3>
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {PROMOTED_BOTS.filter(item => {
+                              const query = botSearch.trim().toLocaleLowerCase();
+                              return !query || `${item.name} ${item.description}`.toLocaleLowerCase().includes(query);
+                            }).map(item => (
+                              <button
+                                key={item.name}
+                                type="button"
+                                onClick={() => selectBot(item)}
+                                className="group overflow-hidden rounded-2xl border border-gray-100 bg-white text-left shadow-sm transition-shadow hover:shadow-md"
+                              >
+                                <div className={`flex h-[158px] items-center justify-center overflow-hidden ${item.visual}`}>
+                                  {item.icon ? (
+                                    <img src={item.icon} alt="" className="h-28 w-28 object-contain" />
+                                  ) : (
+                                    <span className="text-7xl font-black tracking-tight text-gray-950 drop-shadow-sm">{item.emoji}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 px-3 py-3">
+                                  <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-xl ${item.iconClass}`}>
+                                    <BotDirectoryIcon item={item} />
+                                  </span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-[15px] font-semibold text-gray-900">{item.name}</span>
+                                    <span className="block truncate text-[13px] text-gray-500">{item.description}</span>
+                                  </span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </section>
+                      </div>
+                      <div className="shrink-0 bg-white px-4 py-2.5 text-center text-[11px] text-gray-500 sm:px-5">
+                        BDD Bot est déjà disponible par défaut dans tous les groupes.
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBotSearch('');
+                      setShowBotsPicker(previous => !previous);
+                      setShowEmojiPicker(false);
+                      setShowGifPicker(false);
+                      setShowStickerPicker(false);
+                    }}
+                    className={`hidden h-10 w-10 items-center justify-center rounded-full transition-colors md:flex ${showBotsPicker ? 'bg-blue-100 text-blue-600' : 'text-[#6d6f78] hover:bg-[#e3e5e8] hover:text-[#060607]'}`}
+                    title="Installer un bot"
+                    aria-label="Ouvrir les bots disponibles"
+                    aria-expanded={showBotsPicker}
+                  >
+                    <SquaresFour size={20} />
+                  </button>
+                </div>
               )}
             </div>
           </form>

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CaretLeft, PhoneCall, VideoCamera, Gear, Users, NotePencil, User } from '@phosphor-icons/react';
+import { Brain, CaretLeft, PhoneCall, VideoCamera, Gear, Users, NotePencil, User } from '@phosphor-icons/react';
 import UserAvatar from '@/components/ui/UserAvatar';
 import GroupAvatar from '../ui/GroupAvatar';
 
@@ -49,7 +49,7 @@ export default function ChatHeader({
 }: ChatHeaderProps) {
   const isGroup = groupId === 'general' || isCustomGroup || groupId === 'snapchat';
   const isPrivate = groupId?.startsWith('private_');
-  const isSpecial = groupId?.startsWith('ai-') || groupId === 'snapchat';
+  const isSpecial = groupId?.startsWith('ai-') || groupId?.startsWith('botchat_') || groupId === 'snapchat';
 
   // UID de l'autre utilisateur dans une discussion privée
   const otherUserId = isPrivate && currentUserId
@@ -85,11 +85,15 @@ export default function ChatHeader({
             ) : (
               <GroupAvatar size={40} />
             )
-          ) : groupId?.startsWith('private_') ? (
+          ) : groupId?.startsWith('private_') || groupId?.startsWith('botchat_') ? (
             displayAvatar ? (
               <img src={displayAvatar} alt={displayName} className="w-full h-full object-cover" />
+            ) : groupId?.startsWith('botchat_') ? (
+              <div className="flex h-full w-full items-center justify-center bg-gray-100">
+                <Brain size={22} weight="duotone" className="text-gray-500" aria-hidden="true" />
+              </div>
             ) : (
-              <UserAvatar uid={otherUserId} photoURL={null} displayName={displayName} size={40} />
+              <UserAvatar uid={otherUserId || groupId || ''} photoURL={null} displayName={displayName} size={40} />
             )
           ) : (
             <img src="/Logo.png" alt="Logo" className="w-full h-full object-cover block" />

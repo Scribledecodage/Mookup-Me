@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import {
   ArrowBendUpLeft,
   ArrowBendUpRight,
+  ArrowRight,
   Copy,
   DotsThree,
   Flag,
@@ -16,6 +17,7 @@ import {
   Play,
   SealCheck,
   ShieldCheck,
+  ShieldWarning,
   SpeakerHigh,
   Trash,
   X,
@@ -26,6 +28,10 @@ import BotMessage from '../BotMessage';
 import LinkPreviewCard from './LinkPreviewCard';
 import { openImageInTab } from '@/lib/openImageInTab';
 import CodeBlock from './CodeBlock';
+import UserAvatar from '@/components/ui/UserAvatar';
+import { speakLocalSpeech, splitSpeechSentences } from '@/lib/localSpeech';
+import SpeechHighlightedText from '@/components/SpeechHighlightedText';
+import { extractColors, toHex } from '@/lib/colorUtils';
 import { Message } from './types';
 
 type ReportStep = 'categories' | 'summary' | 'sent';
@@ -39,6 +45,97 @@ const reportCategories = [
   'Autre chose',
   'Signaler du contenu illégal dans le cadre de la législation sur les services numériques',
 ];
+
+function ReportMessagePreview({ text }: { text: string }) {
+  return (
+    <div className="report-message-markdown break-words text-[15px] leading-6 text-gray-700">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ children }) => <p className="m-0">{children}</p>,
+          strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+          em: ({ children }) => <em className="italic">{children}</em>,
+          del: ({ children }) => <del>{children}</del>,
+          code: ({ children }) => <code className="rounded bg-gray-200 px-1 text-[13px]">{children}</code>,
+        }}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function BddBotVerifiedBadge() {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  return (
+    <span
+      className="relative inline-flex items-center"
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsOpen(previous => !previous);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setIsOpen(false)}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[#00a884] transition-colors hover:bg-[#00a884]/10 focus:outline-none focus:ring-2 focus:ring-[#00a884]/25"
+        aria-label="Informations sur le badge de BDD Bot"
+        aria-expanded={isOpen}
+      >
+        <SealCheck size={14} weight="fill" />
+      </button>
+      {isOpen && (
+        <span
+          role="tooltip"
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-xl border border-gray-100 bg-white p-3 text-left shadow-[0_8px_24px_rgba(0,0,0,0.14)]"
+        >
+          <span className="block text-[13px] font-semibold text-gray-900">BDD Bot officiel</span>
+          <span className="mt-1 block text-[12px] leading-relaxed text-gray-500">Assistant IA officiel développé par l’équipe Mookup.</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
+function CommunityBotBadge() {
+  const [isOpen, setIsOpen] = React.useState(false);
+
+  return (
+    <span
+      className="relative inline-flex items-center"
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsOpen(previous => !previous);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setIsOpen(false)}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-gray-900 transition-colors hover:bg-violet-100 hover:text-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-300"
+        aria-label="Informations sur le bot communautaire"
+        aria-expanded={isOpen}
+      >
+        <ShieldWarning size={14} weight="regular" />
+      </button>
+      {isOpen && (
+        <span
+          role="tooltip"
+          className="absolute bottom-full left-1/2 z-50 mb-2 w-60 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-[0_8px_24px_rgba(0,0,0,0.14)]"
+        >
+          <span className="block text-[13px] font-semibold text-gray-900">Bot communautaire</span>
+          <span className="mt-1 block text-[12px] leading-relaxed text-gray-500">Ce bot a été créé par un membre de la communauté. Il n’est pas un bot officiel de Mookup.</span>
+        </span>
+      )}
+    </span>
+  );
+}
 
 const formatAudioTime = (seconds: number) => {
   const safeSeconds = Math.max(0, Math.floor(seconds));
@@ -208,12 +305,30 @@ export default function MessageItem({
   dateStr
 }: MessageItemProps) {
   const isMe = msg.uid === user?.uid;
+  const isBotMessage = msg.uid === 'bddbot' || msg.uid === 'mistral-ai' || msg.uid === 'ai-bot' || msg.uid?.startsWith('ai-') || msg.uid?.startsWith('bot-');
+  const isCommunityBotMessage = Boolean(msg.uid?.startsWith('bot-') && !groupId?.startsWith('botchat_'));
+  const isTeamMookupMessage = groupId === 'snapchat';
   const isGiphyMedia = Boolean(msg.imageUrl?.includes('giphy.com'));
-  // Pour soi-même : photo du profil courant en priorité
-  // Pour les autres : photo live depuis Firestore, sinon celle stockée dans le message
-  const displayPhotoURL = isMe
-    ? (user?.photoURL || msg.photoURL)
-    : (livePhotoURL !== undefined ? livePhotoURL : msg.photoURL);
+  // Team Mookup est toujours affiché avec son identité officielle, même si le message a été publié par le compte admin.
+  // Pour les autres conversations, on utilise la photo live du profil quand elle existe.
+  const displayPhotoURL = isTeamMookupMessage
+    ? '/Logo.png'
+    : isBotMessage
+      ? msg.photoURL
+      : isMe
+        ? (user?.photoURL || msg.photoURL)
+        : (livePhotoURL !== undefined ? livePhotoURL : msg.photoURL);
+  const renderedDisplayName = isTeamMookupMessage
+    ? 'Team Mookup'
+    : isMe
+      ? (user?.displayName || 'Moi')
+      : msg.displayName;
+  const [botAvatarColor, setBotAvatarColor] = React.useState<string | null>(null);
+  const messageNameColor = isTeamMookupMessage
+    ? '#7c3aed'
+    : isBotMessage
+      ? (displayPhotoURL ? botAvatarColor || accentColor : '#000000')
+      : accentColor;
   const [isOptionsOpen, setIsOptionsOpen] = React.useState(false);
   const [isQuickActionsVisible, setIsQuickActionsVisible] = React.useState(false);
   const [isQuickActionsDismissed, setIsQuickActionsDismissed] = React.useState(false);
@@ -230,10 +345,27 @@ export default function MessageItem({
   const [reportStep, setReportStep] = React.useState<ReportStep | null>(null);
   const [reportCategory, setReportCategory] = React.useState<string | null>(null);
   const [isReporting, setIsReporting] = React.useState(false);
+  const [readingSentenceIndex, setReadingSentenceIndex] = React.useState<number | null>(null);
+  const [readingWord, setReadingWord] = React.useState<string | null>(null);
+  const [readingWordIndex, setReadingWordIndex] = React.useState<number | null>(null);
   const [menuPosition, setMenuPosition] = React.useState<{ top: number; left: number; width: number } | null>(null);
   const optionsRef = React.useRef<HTMLDivElement>(null);
   const moreOptionsRef = React.useRef<HTMLButtonElement>(null);
   const editInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (!isBotMessage || !displayPhotoURL) return;
+
+    let cancelled = false;
+    void extractColors(displayPhotoURL).then(colors => {
+      if (cancelled) return;
+      setBotAvatarColor(colors[0] ? toHex(colors[0]) : accentColor);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accentColor, displayPhotoURL, isBotMessage]);
 
   React.useLayoutEffect(() => {
     if (!isOptionsOpen) return;
@@ -460,14 +592,26 @@ export default function MessageItem({
     dismissQuickActions();
   };
 
+  const speechSentences = React.useMemo(() => splitSpeechSentences(msg.text), [msg.text]);
+  const activeSpeechSentence = readingSentenceIndex === null ? null : speechSentences[readingSentenceIndex] || null;
+
   const handleReadMessage = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window && msg.text.trim()) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(msg.text);
-      utterance.lang = 'fr-FR';
-      utterance.rate = 1;
-      window.speechSynthesis.speak(utterance);
-    }
+    void speakLocalSpeech(msg.text, {
+      onSentenceChange: index => {
+        setReadingSentenceIndex(index);
+        setReadingWord(null);
+        setReadingWordIndex(null);
+      },
+      onWordChange: (_index, word, wordIndex) => {
+        setReadingWord(word);
+        setReadingWordIndex(wordIndex);
+      },
+      onComplete: () => {
+        setReadingSentenceIndex(null);
+        setReadingWord(null);
+        setReadingWordIndex(null);
+      },
+    });
     closeOptions();
   };
 
@@ -638,6 +782,16 @@ export default function MessageItem({
       setIsForwarding(false);
     }
   };
+
+  if (msg.isSystemMessage) {
+    return (
+      <div className="flex items-center justify-start gap-2 px-4 py-3 text-[13px] text-gray-500">
+        <ArrowRight size={20} weight="bold" className="flex-shrink-0 text-emerald-500" aria-hidden="true" />
+        <span>{msg.text}</span>
+        {dateStr && <span className="text-[11px] text-gray-400">{dateStr}</span>}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -950,7 +1104,7 @@ export default function MessageItem({
                 )}
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
-                    <span className="truncate font-semibold text-gray-800">{isMe ? (user?.displayName || 'Moi') : msg.displayName}</span>
+                    <span className="truncate font-semibold text-gray-800">{renderedDisplayName}</span>
                     <span className="text-[12px] text-gray-400">{dateStr}</span>
                   </div>
                   <p className="mt-1 break-words text-[15px] text-gray-700">
@@ -1026,16 +1180,16 @@ export default function MessageItem({
                     {displayPhotoURL ? (
                       <img src={displayPhotoURL} alt="" className="h-12 w-12 flex-shrink-0 rounded-full object-cover" />
                     ) : (
-                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full" style={{ background: accentColor }}>
-                        <span className="text-lg font-semibold text-white">{msg.displayName.charAt(0).toUpperCase()}</span>
-                      </div>
+                      <UserAvatar uid={msg.uid} photoURL={null} displayName={renderedDisplayName} size={48} />
                     )}
                     <div className="min-w-0">
                       <div className="flex items-baseline gap-2">
                         <span className="font-semibold text-gray-800">{msg.displayName}</span>
                         <span className="text-[12px] text-gray-400">{dateStr}</span>
                       </div>
-                      <p className="mt-1 line-clamp-3 break-words text-[15px] text-gray-700">{msg.text || (msg.imageUrl ? 'Image' : msg.videoUrl ? 'Vidéo' : 'Message')}</p>
+                      <div className="mt-1 line-clamp-3">
+                        <ReportMessagePreview text={msg.text || (msg.imageUrl ? 'Image' : msg.videoUrl ? 'Vidéo' : 'Message')} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1062,10 +1216,12 @@ export default function MessageItem({
                 <p className="text-[15px] leading-6 text-gray-700">En soumettant ce signalement, tu confirmes qu’il est sincère et de bonne foi. Nous te demandons de suivre la Charte d’utilisation de la Communauté et de ne pas soumettre de faux signalements.</p>
                 <p className="mt-6 text-[14px] font-semibold text-gray-700">Message sélectionné</p>
                 <div className="mt-3 flex max-h-32 items-start gap-3 overflow-hidden rounded-xl border border-gray-200 p-4">
-                  {displayPhotoURL ? <img src={displayPhotoURL} alt="" className="h-12 w-12 flex-shrink-0 rounded-full object-cover" /> : <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full" style={{ background: accentColor }}><span className="text-lg font-semibold text-white">{msg.displayName.charAt(0).toUpperCase()}</span></div>}
+                  {displayPhotoURL ? <img src={displayPhotoURL} alt="" className="h-12 w-12 flex-shrink-0 rounded-full object-cover" /> : <UserAvatar uid={msg.uid} photoURL={null} displayName={renderedDisplayName} size={48} />}
                   <div className="min-w-0">
                     <div className="flex items-baseline gap-2"><span className="font-semibold text-gray-800">{msg.displayName}</span><span className="text-[12px] text-gray-400">{dateStr}</span></div>
-                    <p className="mt-1 line-clamp-3 break-words text-[15px] text-gray-700">{msg.text || (msg.imageUrl ? 'Image' : msg.videoUrl ? 'Vidéo' : 'Message')}</p>
+                    <div className="mt-1 line-clamp-3">
+                      <ReportMessagePreview text={msg.text || (msg.imageUrl ? 'Image' : msg.videoUrl ? 'Vidéo' : 'Message')} />
+                    </div>
                   </div>
                 </div>
                 <p className="mt-7 text-[14px] font-semibold text-gray-700">Signaler la catégorie</p>
@@ -1104,29 +1260,17 @@ export default function MessageItem({
 
       {/* Avatar */}
       <div className={`flex-shrink-0 ${msg.replyTo ? 'mt-6' : 'mt-0.5'}`}>
-        {msg.uid === 'bddbot' ? (
-          <div className="w-10 h-10 rounded-full bg-[#6366f1] flex items-center justify-center shadow-sm select-none overflow-hidden">
-            <img 
-              src="/BDDBOT.png" 
-              alt="BDD Bot" 
-              className="w-8 h-8 object-contain"
-            />
-          </div>
-        ) : displayPhotoURL ? (
+        {displayPhotoURL ? (
           <img
             src={displayPhotoURL}
-            alt={msg.displayName}
+            alt={renderedDisplayName}
             className="w-10 h-10 rounded-full object-cover shadow-sm select-none"
           />
         ) : (
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center select-none shadow-sm overflow-hidden"
-            style={{ background: accentColor }}
+            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-sm select-none"
           >
-            <svg viewBox="0 0 80 80" width="40" height="40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <circle cx="40" cy="28" r="14" fill="white" fillOpacity="0.9" />
-              <ellipse cx="40" cy="66" rx="22" ry="16" fill="white" fillOpacity="0.9" />
-            </svg>
+            <UserAvatar uid={msg.uid} photoURL={null} displayName={renderedDisplayName} size={40} />
           </div>
         )}
       </div>
@@ -1136,13 +1280,13 @@ export default function MessageItem({
         {msg.replyTo && (
           msg.replyTo.deleted ? (
             <div className="relative mb-1 flex h-6 min-w-0 items-center gap-1 text-[13px] italic leading-5 text-gray-500">
-              <span className="absolute -left-11 top-1/2 h-5 w-8 -translate-y-1/2 rounded-tl-lg border-l-2 border-t-2 border-gray-300" aria-hidden="true" />
+              <span className="absolute -left-8 top-1/2 h-3 w-6 rounded-tl-lg border-l-2 border-t-2 border-gray-300" aria-hidden="true" />
               <ArrowBendUpLeft size={16} aria-hidden="true" />
               <span>Le message original a été supprimé</span>
             </div>
           ) : (
             <div className="relative mb-1 flex h-6 min-w-0 items-center gap-2 text-[13px] leading-5 text-gray-500">
-              <span className="absolute -left-11 top-1/2 h-5 w-8 -translate-y-1/2 rounded-tl-lg border-l-2 border-t-2 border-gray-300" aria-hidden="true" />
+              <span className="absolute -left-8 top-1/2 h-3 w-6 rounded-tl-lg border-l-2 border-t-2 border-gray-300" aria-hidden="true" />
               {msg.replyTo.photoURL ? (
                 <img
                   src={msg.replyTo.photoURL}
@@ -1150,9 +1294,7 @@ export default function MessageItem({
                   className="h-5 w-5 flex-shrink-0 rounded-full object-cover"
                 />
               ) : (
-                <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-[10px] font-semibold text-gray-500">
-                  {msg.replyTo.displayName.charAt(0).toUpperCase()}
-                </div>
+                <UserAvatar uid={msg.replyTo.uid} photoURL={null} displayName={msg.replyTo.displayName} size={20} />
               )}
               <div className="flex min-w-0 items-center truncate leading-5">
                 <span className="font-medium text-gray-600">@{msg.replyTo.displayName}</span>
@@ -1166,16 +1308,19 @@ export default function MessageItem({
         <div className="flex items-baseline gap-2 mb-0.5">
           <span
             onClick={() => {
-              if (!isMe && onStartPrivateChat && msg.uid !== 'bddbot' && msg.uid !== 'ai-bot' && !msg.uid?.startsWith('ai-')) {
+              if (!isTeamMookupMessage && !isMe && onStartPrivateChat && !isBotMessage) {
                 onStartPrivateChat({ uid: msg.uid, displayName: msg.displayName });
               }
             }}
-            className={`text-[15px] font-semibold leading-none flex items-center gap-1 ${!isMe && msg.uid !== 'bddbot' && msg.uid !== 'ai-bot' && !msg.uid?.startsWith('ai-') ? 'cursor-pointer hover:underline' : ''}`}
-            style={{ color: accentColor }}
+            className={`text-[15px] font-semibold leading-none flex items-center gap-1 ${!isTeamMookupMessage && !isMe && !isBotMessage ? 'cursor-pointer hover:underline' : ''}`}
+            style={{ color: messageNameColor }}
           >
-            {isMe ? (user?.displayName || 'Moi') : msg.displayName}
-            {!isMe && (msg.uid === 'bddbot' || msg.uid === 'mistral-ai' || msg.uid?.startsWith('ai-')) && !groupId?.startsWith('ai-') && (
-              <SealCheck size={10} weight="bold" className="opacity-90" />
+            {renderedDisplayName}
+            {!isTeamMookupMessage && !isMe && isCommunityBotMessage && (
+              <CommunityBotBadge />
+            )}
+            {!isTeamMookupMessage && !isMe && (msg.uid === 'bddbot' || msg.uid === 'mistral-ai' || msg.uid?.startsWith('ai-')) && !groupId?.startsWith('ai-') && (
+              <BddBotVerifiedBadge />
             )}
           </span>
           <span className="text-[12px] text-gray-400 font-normal leading-none">{dateStr}</span>
@@ -1213,7 +1358,7 @@ export default function MessageItem({
             </div>
           </div>
         )}
-        <div className={`${isEditing ? 'hidden' : 'flex'} min-w-0 max-w-full flex-col overflow-x-auto`}>
+        <div className={`${isEditing ? 'hidden' : isBotMessage ? 'block' : 'flex'} min-w-0 max-w-full flex-col ${isBotMessage ? 'w-full overflow-x-hidden' : 'overflow-x-auto'}`}>
           {msg.isDeleted && (
             <div className="text-[15px] italic text-gray-500">Ce message a été supprimé</div>
           )}
@@ -1275,31 +1420,34 @@ export default function MessageItem({
             </div>
           )}
           {msg.audioUrl && (
-            <VoiceMessagePlayer src={msg.audioUrl} initialDuration={msg.audioDuration} waveform={msg.audioWaveform} displayName={msg.displayName} />
+            <VoiceMessagePlayer src={msg.audioUrl} initialDuration={msg.audioDuration} waveform={msg.audioWaveform} displayName={renderedDisplayName} />
           )}
-          <div className={`${msg.forwardedFrom ? 'hidden' : 'flex'} min-w-0 max-w-full text-[15px] text-[#2e3338] font-normal leading-relaxed break-words markdown-content overflow-x-auto [overflow-wrap:anywhere] [word-break:break-word]`}>
+          <div className={`${msg.forwardedFrom ? 'hidden' : isBotMessage ? 'block' : 'flex'} min-w-0 max-w-full text-[15px] text-[#2e3338] font-normal leading-relaxed break-words markdown-content ${isBotMessage ? 'w-full overflow-x-hidden' : 'overflow-x-auto'} [overflow-wrap:anywhere] [word-break:break-word]`}>
 
             {(msg.uid === 'bddbot' || msg.uid === 'mistral-ai' || msg.uid?.startsWith('ai-')) ? (
-              <BotMessage text={msg.text} />
+              <BotMessage text={msg.text} activeSpeechSentence={activeSpeechSentence} activeSpeechWord={readingWord} activeSpeechWordIndex={readingWordIndex} />
             ) : (
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               components={{
                 p: ({children}) => {
-                  const isPrivateAiGroup = msg.groupId?.startsWith('ai-');
-                  if (!isPrivateAiGroup && typeof children === 'string' && children.startsWith('/bddbot')) {
-                    const parts = children.split(/(\/bddbot)/);
+                  if (typeof children === 'string' && /@bddbot\b/i.test(children)) {
+                    const parts = children.split(/(@bddbot\b)/gi);
                     return (
                       <p className={msg.edited ? 'inline mb-1 last:mb-0' : 'mb-1 last:mb-0'}>
-                        {parts.map((part, i) => 
-                          part === '/bddbot' 
-                            ? <span key={i} className="text-blue-500 font-bold">/bddbot</span>
+                        {parts.map((part, i) =>
+                          /^@bddbot$/i.test(part)
+                            ? <span key={i} className="font-medium text-blue-500">{part}</span>
                             : part
                         )}
                       </p>
                     );
                   }
-                  return <p className={msg.edited ? 'inline mb-1 last:mb-0' : 'mb-1 last:mb-0'}>{children}</p>;
+                  return (
+                    <p className={msg.edited ? 'inline mb-1 last:mb-0' : 'mb-1 last:mb-0'}>
+                      <SpeechHighlightedText activeSentence={activeSpeechSentence} activeWord={readingWord} activeWordIndex={readingWordIndex}>{children}</SpeechHighlightedText>
+                    </p>
+                  );
                 },
                 code: CodeBlock,
                 table: ({children}) => (

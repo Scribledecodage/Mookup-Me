@@ -52,7 +52,8 @@ export type ProfileSection =
   | 'connexions'
   | 'conditions-utilisation'
   | 'confidentialite'
-  | 'cookies';
+  | 'cookies'
+  | 'administration';
 
 // Les réglages sont séparés en rubriques courtes pour garder le profil lisible.
 const SECTIONS = [
@@ -111,6 +112,15 @@ const SECTIONS = [
     items: [
       { id: 'applications-connectees' as ProfileSection, label: 'Applications connectées', desc: 'Gérer les connexions',       icon: Link },
       { id: 'developpeur'             as ProfileSection, label: 'Développeur',              desc: 'Outils et options avancées', icon: Code },
+    ],
+  },
+  {
+    id: 'administration' as const,
+    label: 'Administration',
+    desc: 'Accès réservé à l’équipe Mookup',
+    icon: ShieldCheck,
+    items: [
+      { id: 'administration' as ProfileSection, label: 'Espace administrateur', desc: 'Connexion et tableau de bord', icon: Lock },
     ],
   },
   {

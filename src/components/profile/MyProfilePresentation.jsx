@@ -8,6 +8,8 @@ import { auth, db } from '@/lib/firebase';
 import UserAvatar from '@/components/ui/UserAvatar';
 import { buildMeshGradientFromColor } from '@/lib/colorUtils';
 import { getUserColor } from '@/lib/getUserColor';
+import { isAdminEmail } from '@/lib/adminConfig';
+import AdminBadge from '@/components/ui/AdminBadge';
 
 function toDate(value) {
   if (!value) return null;
@@ -92,7 +94,10 @@ export default function MyProfilePresentation({ onClose }) {
         <div className="flex flex-col gap-4 px-4 pb-8 md:flex-row md:items-start">
           <div className="flex flex-col gap-3 md:w-[250px] md:flex-shrink-0">
             <div className="rounded-2xl bg-white p-4 shadow-sm">
-              <h1 className="break-words text-[20px] font-bold leading-tight text-gray-900">{displayName}</h1>
+              <div className="flex items-center gap-1.5">
+                <h1 className="break-words text-[20px] font-bold leading-tight text-gray-900">{displayName}</h1>
+                {isAdminEmail(profile.email || user.email) && <AdminBadge />}
+              </div>
               {profile.pronouns && <p className="mt-1 text-[12px] text-gray-400">{profile.pronouns}</p>}
               <div className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-blue-500">
                 <span className="h-2 w-2 rounded-full bg-blue-500" />

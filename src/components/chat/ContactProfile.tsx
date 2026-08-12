@@ -6,8 +6,10 @@ import UserAvatar from '@/components/ui/UserAvatar';
 import { OnlineUser } from '@/lib/presence';
 import { extractColors, buildMeshGradient, buildMeshGradientFromColor } from '@/lib/colorUtils';
 import { getUserColor } from '@/lib/getUserColor';
+import { isAdminEmail } from '@/lib/adminConfig';
+import AdminBadge from '@/components/ui/AdminBadge';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 interface ContactProfileProps {
   displayName: string;
@@ -21,35 +23,6 @@ interface ContactProfileProps {
 }
 
 type ProfileTab = 'tableau' | 'activite';
-
-// Seuil pour considérer quelqu'un en ligne (45s, cohérent avec presence.ts)
-const ONLINE_THRESHOLD = 45000;
-
-function useLastSeen(uid: string): { lastSeen: Date | null; isOnlineNow: boolean } {
-  const [lastSeen, setLastSeen] = useState<Date | null>(null);
-  const [isOnlineNow, setIsOnlineNow] = useState(false);
-
-  useEffect(() => {
-    if (!uid) return;
-    const unsub = onSnapshot(doc(db, 'status', uid), (snap) => {
-      if (!snap.exists()) { setLastSeen(null); setIsOnlineNow(false); return; }
-      const data = snap.data();
-      const ts = data.lastSeen as Timestamp | undefined;
-      if (ts) {
-        const date = ts.toDate();
-        setLastSeen(data.showLastActivity === false ? null : date);
-        setIsOnlineNow(
-          data.visible !== false &&
-          data.state === 'online' &&
-          Date.now() - date.getTime() < ONLINE_THRESHOLD
-        );
-      }
-    });
-    return () => unsub();
-  }, [uid]);
-
-  return { lastSeen, isOnlineNow };
-}
 
 function useBanner(src: string | null | undefined, uid: string): string {
   const [banner, setBanner] = useState(() => buildMeshGradientFromColor(getUserColor(uid)));
@@ -117,7 +90,8 @@ export default function ContactProfile({
   const [tab, setTab] = useState<ProfileTab>('tableau');
   const banner = useBanner(displayAvatar, otherUserId);
   const onlineInfo = onlineUsers.find(u => u.uid === otherUserId);
-  const { lastSeen, isOnlineNow } = useLastSeen(otherUserId);
+  const lastSeen = onlineInfo?.lastSeen ? new Date(onlineInfo.lastSeen) : null;
+  const isOnlineNow = Boolean(onlineInfo);
   const { statusText, statusEmoji } = useUserStatus(otherUserId);
   const isShortStatus = Boolean(statusText && statusText.length <= 28);
   const profileVisibility = contactFullData?.profileVisibility || {};
@@ -220,9 +194,12 @@ export default function ContactProfile({
 
             {/* Nom + statut + pronoms */}
             <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <h2 className="text-[20px] font-bold text-gray-900 leading-tight break-words">
-                {displayName}
-              </h2>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-[20px] font-bold text-gray-900 leading-tight break-words">
+                  {displayName}
+                </h2>
+                {isAdminEmail(contactFullData?.email) && <AdminBadge />}
+              </div>
               {contactFullData?.pronouns ? (
                 <p className="text-[12px] text-gray-400 mt-0.5">{contactFullData.pronouns}</p>
               ) : null}
