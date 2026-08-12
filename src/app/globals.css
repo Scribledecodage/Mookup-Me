@@ -683,3 +683,194 @@ header, nav,
     color: var(--text-primary) !important;
   }
 }
+
+/* Thèmes sélectionnés depuis Profil → Apparence. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #111318;
+  --foreground: #f3f4f6;
+  --surface: #171a21;
+  --surface-muted: #1d2129;
+  --surface-subtle: #242a33;
+  --surface-elevated: #2d3440;
+  --surface-input: #232832;
+  --surface-chat: #1b2027;
+  --line: #343b47;
+  --line-subtle: #2a303a;
+  --text-primary: #f3f4f6;
+  --text-secondary: #d1d5db;
+  --text-muted: #a1aab8;
+  --text-faint: #7f8998;
+  --brand-soft: #252b5c;
+  --brand-soft-strong: #293c68;
+  --error-soft: #3a2025;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #171717;
+  --surface: #ffffff;
+  --surface-muted: #f9fafb;
+  --surface-subtle: #f3f4f6;
+  --surface-elevated: #e5e7eb;
+  --surface-input: #f2f3f5;
+  --surface-chat: #efeae2;
+  --line: #e5e7eb;
+  --line-subtle: #f3f4f6;
+  --text-primary: #171717;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --text-faint: #9ca3af;
+  --brand-soft: #eef2ff;
+  --brand-soft-strong: #dbeafe;
+  --error-soft: #fef2f2;
+}
+
+:root[data-theme="dark"] body,
+:root[data-theme="light"] body {
+  background: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+:root[data-theme="dark"] [class~="bg-white"],
+:root[data-theme="dark"] [class~="bg-gray-50"] { background-color: var(--surface) !important; }
+:root[data-theme="dark"] [class~="bg-gray-100"] { background-color: var(--surface-subtle) !important; }
+:root[data-theme="dark"] [class~="bg-gray-200"] { background-color: var(--surface-elevated) !important; }
+:root[data-theme="dark"] [class~="text-gray-900"],
+:root[data-theme="dark"] [class~="text-gray-800"] { color: var(--text-primary) !important; }
+:root[data-theme="dark"] [class~="text-gray-700"] { color: var(--text-secondary) !important; }
+:root[data-theme="dark"] [class~="text-gray-500"] { color: var(--text-muted) !important; }
+:root[data-theme="dark"] [class~="text-gray-400"] { color: var(--text-faint) !important; }
+:root[data-theme="dark"] [class~="border-gray-100"],
+:root[data-theme="dark"] [class~="border-gray-200"] { border-color: var(--line) !important; }
+
+:root[data-theme="light"] [class~="bg-white"] { background-color: #ffffff !important; }
+:root[data-theme="light"] [class~="bg-gray-50"] { background-color: #f9fafb !important; }
+:root[data-theme="light"] [class~="bg-gray-100"] { background-color: #f3f4f6 !important; }
+:root[data-theme="light"] [class~="bg-gray-200"] { background-color: #e5e7eb !important; }
+:root[data-theme="light"] [class~="text-gray-900"],
+:root[data-theme="light"] [class~="text-gray-800"] { color: #171717 !important; }
+:root[data-theme="light"] [class~="text-gray-700"] { color: #374151 !important; }
+:root[data-theme="light"] [class~="text-gray-500"] { color: #6b7280 !important; }
+:root[data-theme="light"] [class~="text-gray-400"] { color: #9ca3af !important; }
+:root[data-theme="light"] [class~="border-gray-100"],
+:root[data-theme="light"] [class~="border-gray-200"] { border-color: #e5e7eb !important; }
+
+/* La préférence choisie doit fonctionner même lorsque le système est en clair.
+   Le bloc prefers-color-scheme situé plus haut ne peut pas être activé par
+   JavaScript : ces règles reprennent donc les surfaces principales pour le
+   thème sélectionné dans Profil → Apparence. */
+:root[data-theme="dark"] .app-shell,
+:root[data-theme="dark"] .sidebar-rail,
+:root[data-theme="dark"] .sidebar-panel,
+:root[data-theme="dark"] .sidebar-content,
+:root[data-theme="dark"] .sidebar-discussions,
+:root[data-theme="dark"] .sidebar-mobile-nav,
+:root[data-theme="dark"] .profile-page,
+:root[data-theme="dark"] [class~="bg-white"] { background-color: var(--surface) !important; }
+
+:root[data-theme="dark"] [class~="bg-gray-50"],
+:root[data-theme="dark"] [class~="bg-[#f9f9f9]"],
+:root[data-theme="dark"] [class~="bg-[#f2f3f4]"],
+:root[data-theme="dark"] [class~="bg-[#f4f5f7]"],
+:root[data-theme="dark"] [class~="bg-[#f7f7f9]"] { background-color: var(--surface-muted) !important; }
+
+:root[data-theme="dark"] [class~="bg-gray-100"],
+:root[data-theme="dark"] [class~="bg-[#f2f3f5]"],
+:root[data-theme="dark"] [class~="bg-[#202124]"],
+:root[data-theme="dark"] [class~="bg-[#f1f2f4]"] { background-color: var(--surface-subtle) !important; }
+
+:root[data-theme="dark"] [class~="bg-gray-200"] { background-color: var(--surface-elevated) !important; }
+:root[data-theme="dark"] [class~="bg-[#e5e7eb]"] { background-color: #303743 !important; }
+:root[data-theme="dark"] [class~="bg-[#efeae2]"] { background-color: var(--surface-chat) !important; }
+
+:root[data-theme="dark"] [class~="bg-white\/80"],
+:root[data-theme="dark"] [class~="bg-white\/85"],
+:root[data-theme="dark"] [class~="bg-white\/90"] { background-color: color-mix(in srgb, var(--surface) 85%, transparent) !important; }
+
+:root[data-theme="dark"] [class~="text-black"],
+:root[data-theme="dark"] [class~="text-gray-900"],
+:root[data-theme="dark"] [class~="text-gray-800"],
+:root[data-theme="dark"] [class~="text-[#202124]"],
+:root[data-theme="dark"] [class~="text-[#2e3338]"],
+:root[data-theme="dark"] [class~="text-[#172033]"],
+:root[data-theme="dark"] [class~="text-[#111214]"],
+:root[data-theme="dark"] [class~="text-[#444]"] { color: var(--text-primary) !important; }
+
+:root[data-theme="dark"] [class~="text-gray-700"],
+:root[data-theme="dark"] [class~="text-gray-600"] { color: var(--text-secondary) !important; }
+:root[data-theme="dark"] [class~="text-gray-500"] { color: var(--text-muted) !important; }
+:root[data-theme="dark"] [class~="text-gray-400"] { color: var(--text-faint) !important; }
+
+:root[data-theme="dark"] [class~="border-gray-50"],
+:root[data-theme="dark"] [class~="border-gray-100"],
+:root[data-theme="dark"] [class~="border-gray-200"],
+:root[data-theme="dark"] [class~="border-gray-300"] { border-color: var(--line) !important; }
+
+:root[data-theme="dark"] .sidebar-item-selected {
+  background: linear-gradient(100deg, rgba(92, 89, 190, 0.38), rgba(48, 52, 77, 0.78)) !important;
+  box-shadow: inset 3px 0 0 #9b95ff, 0 1px 2px rgba(0, 0, 0, 0.16);
+  color: #f5f6ff !important;
+}
+:root[data-theme="dark"] .sidebar-item-selected span,
+:root[data-theme="dark"] .sidebar-item-selected svg,
+:root[data-theme="dark"] .sidebar-rail-item-active svg { color: #f5f6ff !important; }
+:root[data-theme="dark"] .sidebar-rail-item-active {
+  background: linear-gradient(145deg, rgba(124, 104, 214, 0.42), rgba(67, 48, 137, 0.72)) !important;
+  color: #e2d8ff !important;
+}
+:root[data-theme="dark"] .sidebar-panel .sidebar-item:not(.sidebar-item-selected):hover,
+:root[data-theme="dark"] .sidebar-section-toggle:hover { background-color: rgba(255, 255, 255, 0.055) !important; }
+
+:root[data-theme="dark"] .status-list-view { background-color: var(--surface-chat) !important; }
+:root[data-theme="dark"] .status-list-card { background-color: var(--surface) !important; color: var(--text-primary) !important; }
+:root[data-theme="dark"] .status-action-button,
+:root[data-theme="dark"] .status-empty-icon { background-color: var(--surface-subtle) !important; }
+:root[data-theme="dark"] .status-list-item { border-color: var(--line-subtle) !important; }
+:root[data-theme="dark"] .status-list-name { color: var(--text-primary) !important; }
+:root[data-theme="dark"] .status-list-meta,
+:root[data-theme="dark"] .status-section-label { color: var(--text-muted) !important; }
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select { background-color: var(--surface-input); color: var(--text-primary); }
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder { color: var(--text-faint) !important; }
+
+/* Quand le système est sombre mais que l’utilisateur force Clair, les règles
+   prefers-color-scheme doivent également être neutralisées. */
+:root[data-theme="light"] .app-shell,
+:root[data-theme="light"] .sidebar-rail,
+:root[data-theme="light"] .sidebar-panel,
+:root[data-theme="light"] .sidebar-content,
+:root[data-theme="light"] .sidebar-discussions,
+:root[data-theme="light"] .sidebar-mobile-nav,
+:root[data-theme="light"] [class~="bg-white"] { background-color: #ffffff !important; }
+:root[data-theme="light"] [class~="bg-gray-50"],
+:root[data-theme="light"] [class~="bg-[#f9f9f9]"],
+:root[data-theme="light"] [class~="bg-[#f2f3f4]"],
+:root[data-theme="light"] [class~="bg-[#f7f7f9]"] { background-color: #f9fafb !important; }
+:root[data-theme="light"] [class~="bg-gray-100"],
+:root[data-theme="light"] [class~="bg-[#f2f3f5]"] { background-color: #f3f4f6 !important; }
+:root[data-theme="light"] [class~="bg-gray-200"] { background-color: #e5e7eb !important; }
+:root[data-theme="light"] [class~="bg-[#efeae2]"] { background-color: #efeae2 !important; }
+:root[data-theme="light"] [class~="text-black"],
+:root[data-theme="light"] [class~="text-gray-900"],
+:root[data-theme="light"] [class~="text-gray-800"],
+:root[data-theme="light"] [class~="text-[#202124]"],
+:root[data-theme="light"] [class~="text-[#2e3338]"],
+:root[data-theme="light"] [class~="text-[#172033]"],
+:root[data-theme="light"] [class~="text-[#111214]"],
+:root[data-theme="light"] [class~="text-[#444]"] { color: #171717 !important; }
+:root[data-theme="light"] [class~="text-gray-700"],
+:root[data-theme="light"] [class~="text-gray-600"] { color: #374151 !important; }
+:root[data-theme="light"] [class~="text-gray-500"] { color: #6b7280 !important; }
+:root[data-theme="light"] [class~="text-gray-400"] { color: #9ca3af !important; }
+:root[data-theme="light"] [class~="border-gray-50"],
+:root[data-theme="light"] [class~="border-gray-100"],
+:root[data-theme="light"] [class~="border-gray-200"],
+:root[data-theme="light"] [class~="border-gray-300"] { border-color: #e5e7eb !important; }
+:root[data-theme="light"] input,
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] select { background-color: #f2f3f5; color: #171717; }

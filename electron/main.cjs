@@ -91,6 +91,7 @@ ipcMain.on('electron-system-activity-dismiss', (_event, appId) => {
 
 ipcMain.on('electron-system-activity-prompt-preference', (_event, enabled) => {
   systemActivityPromptEnabled = enabled === true;
+  writeSystemActivityLog('prompt-preference-received', { enabled: systemActivityPromptEnabled });
   if (!systemActivityPromptEnabled) {
     pendingSystemActivity = null;
     approvedSystemActivityId = null;
@@ -104,6 +105,20 @@ function getUpdateLogPath() {
   const logDirectory = app.getPath('logs');
   fs.mkdirSync(logDirectory, { recursive: true });
   return path.join(logDirectory, 'updater.log');
+}
+
+function writeSystemActivityLog(event, details = {}) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    event,
+    details,
+  };
+
+  console.info(`[System activity] ${event}`, details);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('electron-system-activity-debug', entry);
+  }
+  return entry;
 }
 
 function writeUpdateLog(event, details = {}) {
@@ -335,17 +350,23 @@ function positionSystemActivityPrompt() {
 }
 
 function hideSystemActivityPrompt() {
-  if (systemActivityPromptWindow && !systemActivityPromptWindow.isDestroyed()) systemActivityPromptWindow.hide();
+  if (systemActivityPromptWindow && !systemActivityPromptWindow.isDestroyed() && systemActivityPromptWindow.isVisible()) {
+    systemActivityPromptWindow.hide();
+    writeSystemActivityLog('prompt-hidden');
+  }
 }
 
 function showSystemActivityPrompt(activity) {
   const wasVisible = systemActivityPromptWindow
     && !systemActivityPromptWindow.isDestroyed()
     && systemActivityPromptWindow.isVisible();
+  const activityChanged = pendingSystemActivity?.appId !== activity?.appId;
   pendingSystemActivity = activity;
+  if (activityChanged) writeSystemActivityLog('prompt-requested', { activity });
   if (wasVisible) {
     const payload = JSON.stringify(activity);
     void systemActivityPromptWindow.webContents.executeJavaScript(`window.updateActivityPrompt(${payload})`).catch(() => {});
+    writeSystemActivityLog('prompt-updated', { activity });
     return;
   }
 
@@ -387,8 +408,12 @@ function showSystemActivityPrompt(activity) {
       if (pendingSystemActivity?.appId !== activity.appId) return;
       positionSystemActivityPrompt();
       systemActivityPromptWindow?.show();
+      writeSystemActivityLog('prompt-visible', { activity });
     })
-    .catch(error => console.warn('[System activity] Fenêtre de confirmation indisponible:', error.message));
+    .catch(error => {
+      console.warn('[System activity] Fenêtre de confirmation indisponible:', error.message);
+      writeSystemActivityLog('prompt-error', { message: error.message });
+    });
 }
 
 function updateSystemActivityPrompt(activity) {
@@ -428,6 +453,7 @@ function approveSystemActivity(appId) {
   pendingSystemActivity = null;
   dismissedSystemActivityIds.delete(appId);
   hideSystemActivityPrompt();
+  writeSystemActivityLog('prompt-approved', { activity });
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('electron-system-activity-approved', activity);
 }
 
@@ -437,6 +463,7 @@ function dismissSystemActivity(appId) {
   approvedSystemActivityId = null;
   dismissedSystemActivityIds.add(appId);
   hideSystemActivityPrompt();
+  writeSystemActivityLog('prompt-dismissed', { appId });
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('electron-system-activity-dismissed', { appId });
 }
 
@@ -463,6 +490,7 @@ async function getSystemActivity() {
     if (!getSystemActivity.permissionWarningShown) {
       getSystemActivity.permissionWarningShown = true;
       console.warn('[System activity] Fenêtre active indisponible:', error.message);
+      writeSystemActivityLog('detection-error', { message: error.message });
     }
     return null;
   }
@@ -479,6 +507,7 @@ async function pollSystemActivity() {
     if (key === lastSystemActivityKey) return;
     lastSystemActivityKey = key;
     currentSystemActivity = activity;
+    writeSystemActivityLog('activity-detected', { activity });
     mainWindow.webContents.send('electron-system-activity', activity);
   } finally {
     systemActivityPollInFlight = false;

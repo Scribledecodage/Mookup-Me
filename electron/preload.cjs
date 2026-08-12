@@ -28,6 +28,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('electron-system-activity', handler);
     return () => ipcRenderer.removeListener('electron-system-activity', handler);
   },
+  onSystemActivityDebug: (listener) => {
+    if (typeof listener !== 'function') return () => {};
+
+    const handler = (_event, entry) => listener(entry);
+    ipcRenderer.on('electron-system-activity-debug', handler);
+    return () => ipcRenderer.removeListener('electron-system-activity-debug', handler);
+  },
   onSystemActivityApproved: (listener) => {
     if (typeof listener !== 'function') return () => {};
 

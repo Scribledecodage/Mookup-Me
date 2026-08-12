@@ -23,6 +23,12 @@ interface ElectronSystemActivity {
   logoUrl?: string | null;
 }
 
+interface ElectronSystemActivityDebugEntry {
+  timestamp: string;
+  event: string;
+  details?: Record<string, unknown>;
+}
+
 interface Window {
   /** Positionné à true par le bridge Electron quand l'application est empaquetée. */
   electronAPI?: {
@@ -35,6 +41,7 @@ interface Window {
     dismissSystemActivity?: (appId: string) => void;
     setSystemActivityPromptEnabled?: (enabled: boolean) => void;
     onSystemActivity?: (listener: (activity: ElectronSystemActivity | null) => void) => () => void;
+    onSystemActivityDebug?: (listener: (entry: ElectronSystemActivityDebugEntry) => void) => () => void;
     onSystemActivityApproved?: (listener: (activity: ElectronSystemActivity) => void) => () => void;
     onSystemActivityDismissed?: (listener: (activity: { appId: string }) => void) => () => void;
     setRecentContacts?: (contacts: Array<{ chatId: string; uid: string; displayName: string; photoURL?: string | null; isBot: boolean }>) => void;

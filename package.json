@@ -1,6 +1,6 @@
 {
   "name": "mookup",
-  "version": "2.0.26",
+  "version": "2.0.27",
   "description": "Mookup desktop application",
   "author": "Team Mookup",
   "private": true,
@@ -116,7 +116,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "Mookup-Setup-${version}.${ext}"
@@ -131,11 +133,15 @@
       "deleteAppDataOnUninstall": false
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "artifactName": "Mookup-${version}.${ext}"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "category": "Network",
       "artifactName": "Mookup-${version}.${ext}"
     },

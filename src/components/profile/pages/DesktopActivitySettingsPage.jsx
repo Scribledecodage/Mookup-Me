@@ -51,9 +51,15 @@ export default function DesktopActivitySettingsPage() {
     setIsSuccess(false);
     setError('');
     const nextPrivacy = { ...activityPrivacy, desktopPromptConsent: enabled ? 'enabled' : 'disabled' };
+    console.info('[System activity][settings-change]', {
+      enabled,
+      desktopPromptConsent: nextPrivacy.desktopPromptConsent,
+      showActivity: nextPrivacy.showActivity !== false,
+    });
     setActivityPrivacy(nextPrivacy);
     try {
       await setDoc(doc(db, 'users', user.uid), { activityPrivacy: nextPrivacy }, { merge: true });
+      console.info('[System activity][settings-saved]', { enabled });
       setIsSuccess(true);
       window.setTimeout(() => setIsSuccess(false), 2200);
     } catch (saveError) {

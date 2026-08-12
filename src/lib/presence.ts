@@ -258,6 +258,7 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
   presenceStores.set(uid, store);
 
   const handleSystemActivity = (rawActivity: ElectronSystemActivity | null) => {
+    console.info('[System activity][renderer-received]', rawActivity);
     const activity = normalizeSystemActivity(rawActivity);
     const appId = activity?.appId || null;
 
@@ -304,6 +305,7 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
   if (typeof window !== 'undefined' && window.electronAPI?.isElectron) {
     unsubscribeSystemActivity = window.electronAPI.onSystemActivity?.(handleSystemActivity) || null;
     unsubscribeSystemActivityApproved = window.electronAPI.onSystemActivityApproved?.((rawActivity) => {
+      console.info('[System activity][renderer-approved-event]', rawActivity);
       const activity = normalizeSystemActivity(rawActivity);
       if (!activity) return;
       if (pendingActivity?.appId === activity.appId) {
@@ -316,6 +318,7 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
       void writePresence();
     }) || null;
     unsubscribeSystemActivityDismissed = window.electronAPI.onSystemActivityDismissed?.(({ appId }) => {
+      console.info('[System activity][renderer-dismissed-event]', { appId });
       if (pendingActivity?.appId === appId) {
         dismissActivity(appId);
         return;
@@ -372,16 +375,21 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
         showActivity: savedPrivacy.showActivity !== false,
         desktopPromptConsent,
       };
-      window.electronAPI?.setSystemActivityPromptEnabled?.(
-        desktopPromptConsent === 'enabled' && activityPrivacy.showActivity,
-      );
+      const promptEnabled = desktopPromptConsent === 'enabled' && activityPrivacy.showActivity;
+      console.info('[System activity][privacy-loaded]', {
+        desktopPromptConsent,
+        showActivity: activityPrivacy.showActivity,
+        promptEnabled,
+      });
+      window.electronAPI?.setSystemActivityPromptEnabled?.(promptEnabled);
       if (desktopPromptConsent !== 'enabled') {
         systemActivity = null;
         pendingActivity = null;
         notifyActivityPrompt();
       }
       void writePresence();
-    }, () => {
+    }, error => {
+      console.warn('[System activity][privacy-error] Impossible de charger les préférences d’activité.', error);
       window.electronAPI?.setSystemActivityPromptEnabled?.(false);
       void writePresence();
     });

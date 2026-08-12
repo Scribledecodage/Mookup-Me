@@ -42,6 +42,7 @@ export default function DesktopActivityConsent({ user }: DesktopActivityConsentP
 
   const chooseConsent = async (value: Exclude<ConsentValue, 'unset'>) => {
     if (!user || isSaving) return;
+    console.info('[System activity][consent-choice]', { value });
     setIsSaving(true);
     try {
       await setDoc(doc(db, 'users', user.uid), {
@@ -50,6 +51,7 @@ export default function DesktopActivityConsent({ user }: DesktopActivityConsentP
           desktopPromptConsent: value,
         },
       }, { merge: true });
+      console.info('[System activity][consent-saved]', { value });
       setCompletedMessage(value === 'enabled'
         ? 'D’accord, Mookup vous demandera désormais avant d’afficher une application.'
         : 'Pas de problème. Vous pourrez réactiver cette option dans Profil → Confidentialité → Activité sur l’ordinateur.');

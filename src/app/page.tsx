@@ -463,6 +463,9 @@ export default function Home() {
       console.info(`[Electron update][${source}] ${entry.event}`, entry.details || {});
     };
     const removeDebugListener = electronAPI.onUpdateDebug?.(entry => logDebug(entry));
+    const removeActivityDebugListener = electronAPI.onSystemActivityDebug?.(entry => {
+      console.info(`[System activity][${entry.event}]`, entry.details || {});
+    });
     const removeStatusListener = electronAPI.onUpdateStatus?.(status => {
       console.info('[Electron update][status]', status);
     });
@@ -476,6 +479,7 @@ export default function Home() {
 
     return () => {
       removeDebugListener?.();
+      removeActivityDebugListener?.();
       removeStatusListener?.();
     };
   }, []);
