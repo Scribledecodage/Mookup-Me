@@ -1,6 +1,7 @@
 'use client';
 
 import { auth, db } from '@/lib/firebase';
+import { usePresence } from '@/lib/presence';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
@@ -279,6 +280,7 @@ function WelcomePanel() {
 export default function Home() {
   const pathname = usePathname();
   const [user, loading] = useAuthState(auth);
+  usePresence(user?.uid, user?.displayName);
 
   // Les actions de la Jump List Windows arrivent dans l’URL de l’application.
   // Le groupe est un panneau interne : on transmet donc une fois l’action à HomeView.

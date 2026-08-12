@@ -51,13 +51,18 @@ type PresenceEntry = {
 };
 
 type PresenceListener = (users: OnlineUser[]) => void;
+type ActivityPromptListener = (activity: UserActivity | null) => void;
 
 type PresenceStore = {
   uid: string;
   displayName?: string | null;
   listeners: Set<PresenceListener>;
+  activityPromptListeners: Set<ActivityPromptListener>;
   onlineUsers: OnlineUser[];
+  pendingActivity: UserActivity | null;
   updateHeartbeat: (isTypingStatus?: boolean, typingInGroupId?: string | null) => Promise<void>;
+  acceptActivity: (appId: string) => void;
+  dismissActivity: (appId: string) => void;
   stop: () => void;
 };
 
@@ -70,24 +75,6 @@ function toMillis(value: unknown): number | undefined {
   }
   if (typeof value === 'number') return value;
   return undefined;
-}
-
-function getMookupActivity(): UserActivity {
-  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-  let details = 'Utilise Mookup';
-
-  if (pathname.startsWith('/discussions') || pathname.startsWith('/accueil')) details = 'Discute avec sa communauté';
-  else if (pathname.startsWith('/statuts')) details = 'Consulte les statuts';
-  else if (pathname.startsWith('/bots')) details = 'Explore les bots';
-  else if (pathname.startsWith('/profil')) details = 'Consulte son profil';
-  else if (pathname.startsWith('/appels')) details = 'Gère ses appels';
-
-  return {
-    appId: 'mookup',
-    appName: 'Mookup',
-    details,
-    logoUrl: '/Logo.png',
-  };
 }
 
 function normalizeSystemActivity(activity: ElectronSystemActivity | null): UserActivity | null {
@@ -107,15 +94,26 @@ function normalizeSystemActivity(activity: ElectronSystemActivity | null): UserA
 
 function createPresenceStore(uid: string, displayName?: string | null): PresenceStore {
   const listeners = new Set<PresenceListener>();
+  const activityPromptListeners = new Set<ActivityPromptListener>();
   const presenceEntries = new Map<string, PresenceEntry>();
+  const dismissedActivityIds = new Set<string>();
   let activityPrivacy = { showOnlineStatus: true, showLastActivity: true, showActivity: true };
   let isActive = true;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
   let unsubscribeStatuses: (() => void) | null = null;
   let unsubscribePrivacy: (() => void) | null = null;
   let unsubscribeSystemActivity: (() => void) | null = null;
+  let unsubscribeSystemActivityApproved: (() => void) | null = null;
+  let unsubscribeSystemActivityDismissed: (() => void) | null = null;
   let systemActivity: UserActivity | null = null;
+  let pendingActivity: UserActivity | null = null;
+  let lastDetectedActivityId: string | null = null;
   let currentTyping = { isTyping: false, typingIn: null as string | null };
+
+  const notifyActivityPrompt = () => {
+    store.pendingActivity = pendingActivity;
+    activityPromptListeners.forEach(listener => listener(pendingActivity));
+  };
 
   const notify = () => {
     const now = Date.now();
@@ -159,9 +157,7 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
     const installedApp = isElectronApp || isNativeApp;
     const clientType: PresenceEntry['clientType'] = isElectronApp ? 'electron' : isNativeApp ? 'mobile-app' : 'web';
     const activity = installedApp && activityPrivacy.showActivity
-      ? systemActivity?.appId === 'mookup'
-        ? getMookupActivity()
-        : systemActivity
+      ? systemActivity
       : null;
     const lastSeen = Date.now();
     const localEntry: PresenceEntry = {
@@ -197,12 +193,34 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
     }, { merge: true });
   };
 
+  const acceptActivity = (appId: string) => {
+    if (!pendingActivity || pendingActivity.appId !== appId) return;
+    systemActivity = pendingActivity;
+    pendingActivity = null;
+    dismissedActivityIds.delete(appId);
+    notifyActivityPrompt();
+    void writePresence();
+  };
+
+  const dismissActivity = (appId: string) => {
+    if (!pendingActivity || pendingActivity.appId !== appId) return;
+    dismissedActivityIds.add(appId);
+    pendingActivity = null;
+    systemActivity = null;
+    notifyActivityPrompt();
+    void writePresence();
+  };
+
   const store: PresenceStore = {
     uid,
     displayName,
     listeners,
+    activityPromptListeners,
     onlineUsers: [],
+    pendingActivity: null,
     updateHeartbeat: writePresence,
+    acceptActivity,
+    dismissActivity,
     stop: () => {
       if (!isActive) return;
       isActive = false;
@@ -213,8 +231,14 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
       unsubscribePrivacy = null;
       unsubscribeSystemActivity?.();
       unsubscribeSystemActivity = null;
+      unsubscribeSystemActivityApproved?.();
+      unsubscribeSystemActivityApproved = null;
+      unsubscribeSystemActivityDismissed?.();
+      unsubscribeSystemActivityDismissed = null;
       listeners.clear();
+      activityPromptListeners.clear();
       presenceEntries.clear();
+      pendingActivity = null;
       void setDoc(doc(db, 'status', uid), {
         state: 'offline',
         isTyping: false,
@@ -227,17 +251,77 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
 
   presenceStores.set(uid, store);
 
+  const handleSystemActivity = (rawActivity: ElectronSystemActivity | null) => {
+    const activity = normalizeSystemActivity(rawActivity);
+    const appId = activity?.appId || null;
+
+    if (appId !== lastDetectedActivityId) {
+      if (lastDetectedActivityId) dismissedActivityIds.delete(lastDetectedActivityId);
+      lastDetectedActivityId = appId;
+      if (!appId || appId === 'mookup') dismissedActivityIds.clear();
+    }
+
+    if (!activity) {
+      systemActivity = null;
+      pendingActivity = null;
+      notifyActivityPrompt();
+      void writePresence();
+      return;
+    }
+
+    if (activity.appId === 'mookup') {
+      systemActivity = null;
+      pendingActivity = null;
+      notifyActivityPrompt();
+      void writePresence();
+      return;
+    }
+
+    if (activity.appId === systemActivity?.appId) {
+      systemActivity = activity;
+      pendingActivity = null;
+      notifyActivityPrompt();
+      void writePresence();
+      return;
+    }
+
+    if (dismissedActivityIds.has(activity.appId)) {
+      pendingActivity = null;
+      notifyActivityPrompt();
+      return;
+    }
+
+    pendingActivity = activity;
+    notifyActivityPrompt();
+  };
+
   if (typeof window !== 'undefined' && window.electronAPI?.isElectron) {
-    unsubscribeSystemActivity = window.electronAPI.onSystemActivity?.((activity) => {
-      systemActivity = normalizeSystemActivity(activity);
+    unsubscribeSystemActivity = window.electronAPI.onSystemActivity?.(handleSystemActivity) || null;
+    unsubscribeSystemActivityApproved = window.electronAPI.onSystemActivityApproved?.((rawActivity) => {
+      const activity = normalizeSystemActivity(rawActivity);
+      if (!activity) return;
+      if (pendingActivity?.appId === activity.appId) {
+        acceptActivity(activity.appId);
+        return;
+      }
+      systemActivity = activity;
+      pendingActivity = null;
+      notifyActivityPrompt();
+      void writePresence();
+    }) || null;
+    unsubscribeSystemActivityDismissed = window.electronAPI.onSystemActivityDismissed?.(({ appId }) => {
+      if (pendingActivity?.appId === appId) {
+        dismissActivity(appId);
+        return;
+      }
+      pendingActivity = null;
+      systemActivity = null;
+      notifyActivityPrompt();
       void writePresence();
     }) || null;
     const initialActivityPromise = window.electronAPI.getSystemActivity?.();
     if (initialActivityPromise) {
-      void initialActivityPromise.then((activity) => {
-        systemActivity = normalizeSystemActivity(activity || null);
-        void writePresence();
-      }).catch(() => {});
+      void initialActivityPromise.then(activity => handleSystemActivity(activity || null)).catch(() => {});
     }
   }
 
@@ -291,6 +375,44 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
   return store;
 }
 
+export function useDesktopActivityPrompt(uid: string | undefined, displayName?: string | null) {
+  const [pendingActivity, setPendingActivity] = useState<UserActivity | null>(null);
+  const storeRef = useRef<PresenceStore | null>(null);
+
+  useEffect(() => {
+    if (!uid || typeof window === 'undefined' || !window.electronAPI?.isElectron) return;
+
+    const store = presenceStores.get(uid) || createPresenceStore(uid, displayName);
+    store.displayName = displayName;
+    storeRef.current = store;
+    store.activityPromptListeners.add(setPendingActivity);
+    let mounted = true;
+    queueMicrotask(() => {
+      if (mounted) setPendingActivity(store.pendingActivity);
+    });
+
+    return () => {
+      mounted = false;
+      store.activityPromptListeners.delete(setPendingActivity);
+      storeRef.current = null;
+      if (store.listeners.size === 0 && store.activityPromptListeners.size === 0) {
+        store.stop();
+        presenceStores.delete(uid);
+      }
+    };
+  }, [uid, displayName]);
+
+  const acceptActivity = useCallback((appId: string) => {
+    storeRef.current?.acceptActivity(appId);
+  }, []);
+
+  const dismissActivity = useCallback((appId: string) => {
+    storeRef.current?.dismissActivity(appId);
+  }, []);
+
+  return { pendingActivity, acceptActivity, dismissActivity };
+}
+
 export function usePresence(uid: string | undefined, displayName?: string | null) {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const storeRef = useRef<PresenceStore | null>(null);
@@ -306,7 +428,7 @@ export function usePresence(uid: string | undefined, displayName?: string | null
     return () => {
       store.listeners.delete(setOnlineUsers);
       storeRef.current = null;
-      if (store.listeners.size === 0) {
+      if (store.listeners.size === 0 && store.activityPromptListeners.size === 0) {
         store.stop();
         presenceStores.delete(uid);
       }

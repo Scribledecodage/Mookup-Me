@@ -31,7 +31,11 @@ interface Window {
     electronVersion: string;
     getUpdateDebugHistory?: () => Promise<ElectronUpdateDebugEntry[]>;
     getSystemActivity?: () => Promise<ElectronSystemActivity | null>;
+    approveSystemActivity?: (appId: string) => void;
+    dismissSystemActivity?: (appId: string) => void;
     onSystemActivity?: (listener: (activity: ElectronSystemActivity | null) => void) => () => void;
+    onSystemActivityApproved?: (listener: (activity: ElectronSystemActivity) => void) => () => void;
+    onSystemActivityDismissed?: (listener: (activity: { appId: string }) => void) => () => void;
     setRecentContacts?: (contacts: Array<{ chatId: string; uid: string; displayName: string; photoURL?: string | null; isBot: boolean }>) => void;
     onUpdateStatus?: (listener: (status: ElectronUpdateStatus) => void) => () => void;
     onUpdateDebug?: (listener: (entry: ElectronUpdateDebugEntry) => void) => () => void;

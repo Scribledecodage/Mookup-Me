@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, Menu, session, shell, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, dialog, Menu, session, shell, ipcMain, nativeImage, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -63,6 +63,11 @@ let systemActivityPollInFlight = false;
 let getWindowsModulePromise = null;
 let lastSystemActivityKey = '';
 let currentSystemActivity = null;
+let systemActivityPromptWindow = null;
+let pendingSystemActivity = null;
+let lastDetectedSystemActivityId = null;
+let approvedSystemActivityId = null;
+const dismissedSystemActivityIds = new Set();
 let isInstallingUpdate = false;
 let isQuitting = false;
 const UPDATE_STATE_FILE = 'pending-update.json';
@@ -74,6 +79,14 @@ const MAX_UPDATE_DEBUG_HISTORY = 200;
 ipcMain.handle('electron-update-debug-history', () => updateDebugHistory);
 
 ipcMain.handle('electron-system-activity-current', () => currentSystemActivity);
+
+ipcMain.on('electron-system-activity-approve', (_event, appId) => {
+  approveSystemActivity(String(appId || ''));
+});
+
+ipcMain.on('electron-system-activity-dismiss', (_event, appId) => {
+  dismissSystemActivity(String(appId || ''));
+});
 
 function getUpdateLogPath() {
   const logDirectory = app.getPath('logs');
@@ -233,6 +246,182 @@ function getMookupSystemActivity() {
   };
 }
 
+function getSystemActivityPromptHtml(activity) {
+  return `<!doctype html>
+<html lang=\"fr\">
+<head>
+  <meta charset=\"UTF-8\" />
+  <meta name=\"color-scheme\" content=\"dark\" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; font-family: Segoe UI, Arial, sans-serif; }
+    body { padding: 6px; }
+    .prompt {
+      width: 100%; height: 62px; display: flex; align-items: center; gap: 8px;
+      padding: 7px 9px; color: #fff; background: rgba(52,54,60,.76); border: 1px solid rgba(255,255,255,.16);
+      border-radius: 13px; box-shadow: 0 8px 22px rgba(0,0,0,.2); backdrop-filter: blur(18px);
+      animation: drop 300ms cubic-bezier(.22,1,.36,1) both;
+    }
+    .icon { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; overflow: hidden; border-radius: 7px; background: transparent; }
+    .icon img { width: 100%; height: 100%; object-fit: contain; }
+    .fallback-icon { color: rgba(255,255,255,.85); font-size: 19px; line-height: 1; }
+    .copy { min-width: 0; flex: 1; }
+    .question { margin: 0; font-size: 11px; line-height: 15px; font-weight: 500; white-space: nowrap; }
+    .app-name { margin: 1px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,.7); font-size: 10px; font-weight: 600; }
+    button { width: 27px; height: 27px; flex: 0 0 27px; border: 0; border-radius: 50%; color: #fff; cursor: pointer; font-size: 16px; line-height: 27px; text-align: center; }
+    button:hover { background: rgba(255,255,255,.16); }
+    .approve { background: rgba(255,255,255,.15); }
+    .approve:hover { background: rgba(16,185,129,.8); }
+    .dismiss { color: rgba(255,255,255,.76); background: transparent; }
+    @keyframes drop { from { opacity: 0; transform: translateY(-20px) scale(.97); } 65% { opacity: 1; transform: translateY(3px) scale(1.005); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  </style>
+</head>
+<body>
+  <div class=\"prompt\">
+    <div class=\"icon\"></div>
+    <div class=\"copy\">
+      <p class=\"question\">Voulez-vous mettre cette application en activité ?</p>
+      <p class=\"app-name\"></p>
+    </div>
+    <button class=\"approve\" type=\"button\" aria-label=\"Mettre cette application en activité\">✓</button>
+    <button class=\"dismiss\" type=\"button\" aria-label=\"Fermer\">×</button>
+  </div>
+  <script>
+    const icon = document.querySelector('.icon');
+    const appName = document.querySelector('.app-name');
+    const approve = document.querySelector('.approve');
+    const dismiss = document.querySelector('.dismiss');
+    let currentAppId = '';
+    function updateActivityPrompt(activity) {
+      currentAppId = activity?.appId || '';
+      appName.textContent = activity?.appName || 'Application';
+      icon.replaceChildren();
+      if (activity?.logoUrl) {
+        const image = document.createElement('img');
+        image.src = activity.logoUrl;
+        image.alt = '';
+        icon.appendChild(image);
+      } else {
+        icon.textContent = '▣';
+      }
+    }
+    approve.addEventListener('click', () => window.electronAPI?.approveSystemActivity(currentAppId));
+    dismiss.addEventListener('click', () => window.electronAPI?.dismissSystemActivity(currentAppId));
+    window.updateActivityPrompt = updateActivityPrompt;
+    updateActivityPrompt(${JSON.stringify(activity)});
+  </script>
+</body>
+</html>`;
+}
+
+function positionSystemActivityPrompt() {
+  if (!systemActivityPromptWindow || systemActivityPromptWindow.isDestroyed()) return;
+  const display = screen.getPrimaryDisplay();
+  const { x, y, width } = display.workArea;
+  const promptWidth = 390;
+  systemActivityPromptWindow.setPosition(Math.round(x + (width - promptWidth) / 2), y + 8);
+}
+
+function hideSystemActivityPrompt() {
+  if (systemActivityPromptWindow && !systemActivityPromptWindow.isDestroyed()) systemActivityPromptWindow.hide();
+}
+
+function showSystemActivityPrompt(activity) {
+  const wasVisible = systemActivityPromptWindow
+    && !systemActivityPromptWindow.isDestroyed()
+    && systemActivityPromptWindow.isVisible();
+  pendingSystemActivity = activity;
+  if (wasVisible) {
+    const payload = JSON.stringify(activity);
+    void systemActivityPromptWindow.webContents.executeJavaScript(`window.updateActivityPrompt(${payload})`).catch(() => {});
+    return;
+  }
+
+  if (!systemActivityPromptWindow || systemActivityPromptWindow.isDestroyed()) {
+    systemActivityPromptWindow = new BrowserWindow({
+      width: 390,
+      height: 76,
+      frame: false,
+      transparent: true,
+      resizable: false,
+      movable: false,
+      minimizable: false,
+      maximizable: false,
+      closable: false,
+      skipTaskbar: true,
+      show: false,
+      backgroundColor: '#00000000',
+      hasShadow: false,
+      alwaysOnTop: true,
+      focusable: true,
+      acceptFirstMouse: true,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.cjs'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+    systemActivityPromptWindow.setAlwaysOnTop(true, 'floating');
+    systemActivityPromptWindow.setIgnoreMouseEvents(false);
+    systemActivityPromptWindow.on('closed', () => {
+      systemActivityPromptWindow = null;
+    });
+  }
+
+  positionSystemActivityPrompt();
+  void systemActivityPromptWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(getSystemActivityPromptHtml(activity))}`)
+    .then(() => {
+      if (pendingSystemActivity?.appId !== activity.appId) return;
+      positionSystemActivityPrompt();
+      systemActivityPromptWindow?.show();
+    })
+    .catch(error => console.warn('[System activity] Fenêtre de confirmation indisponible:', error.message));
+}
+
+function updateSystemActivityPrompt(activity) {
+  const appId = activity?.appId || null;
+  if (appId !== lastDetectedSystemActivityId) {
+    if (lastDetectedSystemActivityId) dismissedSystemActivityIds.delete(lastDetectedSystemActivityId);
+    lastDetectedSystemActivityId = appId;
+    if (!appId || appId === 'mookup') dismissedSystemActivityIds.clear();
+  }
+
+  if (!activity || appId === 'mookup') {
+    approvedSystemActivityId = null;
+    pendingSystemActivity = null;
+    hideSystemActivityPrompt();
+    return;
+  }
+
+  if (appId === approvedSystemActivityId || dismissedSystemActivityIds.has(appId)) {
+    pendingSystemActivity = null;
+    hideSystemActivityPrompt();
+    return;
+  }
+
+  showSystemActivityPrompt(activity);
+}
+
+function approveSystemActivity(appId) {
+  if (!pendingSystemActivity || pendingSystemActivity.appId !== appId) return;
+  const activity = pendingSystemActivity;
+  approvedSystemActivityId = appId;
+  pendingSystemActivity = null;
+  dismissedSystemActivityIds.delete(appId);
+  hideSystemActivityPrompt();
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('electron-system-activity-approved', activity);
+}
+
+function dismissSystemActivity(appId) {
+  if (!pendingSystemActivity || pendingSystemActivity.appId !== appId) return;
+  pendingSystemActivity = null;
+  approvedSystemActivityId = null;
+  dismissedSystemActivityIds.add(appId);
+  hideSystemActivityPrompt();
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('electron-system-activity-dismissed', { appId });
+}
+
 async function getSystemActivity() {
   try {
     getWindowsModulePromise ||= import('get-windows');
@@ -263,9 +452,11 @@ async function getSystemActivity() {
 
 async function pollSystemActivity() {
   if (systemActivityPollInFlight || !mainWindow || mainWindow.isDestroyed()) return;
+  if (systemActivityPromptWindow && !systemActivityPromptWindow.isDestroyed() && systemActivityPromptWindow.isFocused()) return;
   systemActivityPollInFlight = true;
   try {
     const activity = await getSystemActivity();
+    updateSystemActivityPrompt(activity);
     const key = activity ? JSON.stringify(activity) : 'mookup';
     if (key === lastSystemActivityKey) return;
     lastSystemActivityKey = key;
