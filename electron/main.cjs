@@ -177,6 +177,8 @@ function configureAutoUpdater() {
   if (isDevelopment || process.env.MOOKUP_DISABLE_AUTO_UPDATE === '1') return;
 
   autoUpdater.autoDownload = true;
+  // Nous distribuons uniquement l’installeur NSIS complet, pas le web installer.
+  autoUpdater.disableWebInstaller = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.autoRunAppAfterInstall = true;
   autoUpdater.allowPrerelease = process.env.MOOKUP_ALLOW_PRERELEASE === '1';

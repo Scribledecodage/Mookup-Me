@@ -80,7 +80,9 @@ Le workflow accepte désormais la signature automatique sans mettre de certifica
    - `WIN_CSC_KEY_PASSWORD` : mot de passe du certificat ;
 4. relancer une release avec un nouveau tag.
 
-Le workflow reste compatible avec les builds non signés tant que ces secrets ne sont pas configurés. Pour une vraie confiance Windows, un certificat public est nécessaire : `publisherName` seul ne signe pas l’application.
+Le workflow reste compatible avec les builds Windows non signés : aucun `publisherName` n’est injecté dans `app-update.yml`, afin qu’Electron puisse installer les releases sans certificat. Cela ne fournit toutefois pas la garantie d’authenticité d’une signature de code. Pour une distribution sécurisée, configurez un certificat public avec `WIN_CSC_LINK` et `WIN_CSC_KEY_PASSWORD`, puis réactivez la vérification du publisher.
+
+Les versions antérieures qui affichent `New version ... is not signed by the application owner` doivent installer manuellement `Mookup-Setup-2.0.16.exe` une première fois. Après cette migration, les prochaines mises à jour non signées pourront être téléchargées et installées automatiquement.
 
 Pour macOS, configurez la signature Apple (`CSC_LINK`, `CSC_KEY_PASSWORD`, notarisation) avant une distribution publique. Sans signature, macOS peut bloquer l’installeur.
 
