@@ -15,6 +15,14 @@ interface ElectronUpdateStatus {
   message?: string;
 }
 
+interface ElectronSystemActivity {
+  appId: string;
+  appName: string;
+  details?: string;
+  state?: string;
+  logoUrl?: string | null;
+}
+
 interface Window {
   /** Positionné à true par le bridge Electron quand l'application est empaquetée. */
   electronAPI?: {
@@ -22,6 +30,8 @@ interface Window {
     platform: string;
     electronVersion: string;
     getUpdateDebugHistory?: () => Promise<ElectronUpdateDebugEntry[]>;
+    getSystemActivity?: () => Promise<ElectronSystemActivity | null>;
+    onSystemActivity?: (listener: (activity: ElectronSystemActivity | null) => void) => () => void;
     setRecentContacts?: (contacts: Array<{ chatId: string; uid: string; displayName: string; photoURL?: string | null; isBot: boolean }>) => void;
     onUpdateStatus?: (listener: (status: ElectronUpdateStatus) => void) => () => void;
     onUpdateDebug?: (listener: (entry: ElectronUpdateDebugEntry) => void) => () => void;

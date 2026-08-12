@@ -5,9 +5,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   electronVersion: process.versions.electron,
   getUpdateDebugHistory: () => ipcRenderer.invoke('electron-update-debug-history'),
+  getSystemActivity: () => ipcRenderer.invoke('electron-system-activity-current'),
   setRecentContacts: (contacts) => {
     if (!Array.isArray(contacts)) return;
     ipcRenderer.send('electron-recent-contacts', contacts.slice(0, 2));
+  },
+  onSystemActivity: (listener) => {
+    if (typeof listener !== 'function') return () => {};
+
+    const handler = (_event, activity) => listener(activity);
+    ipcRenderer.on('electron-system-activity', handler);
+    return () => ipcRenderer.removeListener('electron-system-activity', handler);
   },
   onUpdateStatus: (listener) => {
     if (typeof listener !== 'function') return () => {};

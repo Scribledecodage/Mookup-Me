@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CaretLeft, ChatCircle, PhoneCall, VideoCamera, CalendarBlank, Users, Clock, Heart, MapPin, Tag, Desktop, DeviceMobile } from '@phosphor-icons/react';
+import { CaretLeft, ChatCircle, PhoneCall, VideoCamera, CalendarBlank, Users, Clock, Heart, MapPin, Tag, Desktop, DeviceMobile, DownloadSimple, Pulse } from '@phosphor-icons/react';
 import UserAvatar from '@/components/ui/UserAvatar';
-import { OnlineUser } from '@/lib/presence';
+import { OnlineUser, type UserActivity } from '@/lib/presence';
 import { extractColors, buildMeshGradient, buildMeshGradientFromColor } from '@/lib/colorUtils';
 import { getUserColor } from '@/lib/getUserColor';
 import { isAdminEmail } from '@/lib/adminConfig';
@@ -40,6 +40,30 @@ function useBanner(src: string | null | undefined, uid: string): string {
   }, [src, uid]);
 
   return banner;
+}
+
+function useUserActivity(uid: string): { installedApp: boolean; activity: UserActivity | null } {
+  const [presence, setPresence] = useState<{ installedApp: boolean; activity: UserActivity | null }>({ installedApp: false, activity: null });
+
+  useEffect(() => {
+    if (!uid) return undefined;
+    return onSnapshot(doc(db, 'status', uid), (snapshot) => {
+      const data = snapshot.data() || {};
+      const rawActivity = data.activity;
+      const activity = data.state === 'online' && data.visible !== false && data.showLastActivity !== false && data.showActivity !== false && rawActivity?.appName
+        ? {
+            appId: String(rawActivity.appId || 'app'),
+            appName: String(rawActivity.appName),
+            details: typeof rawActivity.details === 'string' ? rawActivity.details : undefined,
+            state: typeof rawActivity.state === 'string' ? rawActivity.state : undefined,
+            logoUrl: typeof rawActivity.logoUrl === 'string' ? rawActivity.logoUrl : undefined,
+          }
+        : null;
+      setPresence({ installedApp: data.installedApp === true, activity });
+    }, () => setPresence({ installedApp: false, activity: null }));
+  }, [uid]);
+
+  return presence;
 }
 
 function useUserStatus(uid: string): { statusText: string | null; statusEmoji: string } {
@@ -93,6 +117,9 @@ export default function ContactProfile({
   const lastSeen = onlineInfo?.lastSeen ? new Date(onlineInfo.lastSeen) : null;
   const isOnlineNow = Boolean(onlineInfo);
   const { statusText, statusEmoji } = useUserStatus(otherUserId);
+  const { installedApp, activity: savedActivity } = useUserActivity(otherUserId);
+  const activity = onlineInfo?.activity || savedActivity;
+  const hasInstalledApp = installedApp || onlineInfo?.installedApp === true;
   const isShortStatus = Boolean(statusText && statusText.length <= 28);
   const profileVisibility = contactFullData?.profileVisibility || {};
   const canShowProfile = profileVisibility.profile !== 'nobody';
@@ -352,8 +379,44 @@ export default function ContactProfile({
 
             {/* Tab : Activité */}
             {tab === 'activite' && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center min-h-[120px] text-center">
-                <p className="text-[13px] text-gray-400">Aucune activité récente.</p>
+              <div className="bg-white rounded-2xl p-5 shadow-sm">
+                {activity ? (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-100 p-2">
+                      {activity.logoUrl ? (
+                        <img src={activity.logoUrl} alt={`Logo de ${activity.appName}`} className="h-full w-full object-contain" />
+                      ) : (
+                        <Desktop size={24} className="text-blue-500" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Activité en cours</p>
+                      <p className="truncate text-[15px] font-semibold text-gray-900">{activity.appName}</p>
+                      <p className="truncate text-[13px] text-gray-500">{activity.details || 'Activité en cours'}</p>
+                      {activity.state && <p className="truncate text-[12px] text-gray-400">{activity.state}</p>}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center text-center">
+                    <Pulse size={24} className="mb-2 text-gray-300" />
+                    <p className="text-[13px] font-medium text-gray-500">Aucune activité récente.</p>
+                    {hasInstalledApp ? (
+                      <p className="mt-1 max-w-sm text-[12px] leading-5 text-gray-400">L’application est installée, mais aucune activité n’est en cours pour le moment.</p>
+                    ) : (
+                      <>
+                        <p className="mt-1 max-w-sm text-[12px] leading-5 text-gray-400">Les activités détaillées sont disponibles depuis l’application Mookup.</p>
+                        <a
+                          href="/api/download/windows"
+                          download
+                          className="mt-3 inline-flex items-center gap-2 rounded-md bg-blue-500 px-3 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-blue-600"
+                        >
+                          <DownloadSimple size={15} />
+                          Télécharger l’application
+                        </a>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

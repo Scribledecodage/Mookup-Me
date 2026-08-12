@@ -7,6 +7,7 @@ import {
   MagnifyingGlass,
   Key,
   UserCircle,
+  WindowsLogo,
   IdentificationCard,
   Lock,
   Info,
@@ -46,6 +47,7 @@ export type ProfileSection =
   | 'langue-heure'
   | 'confidentialite-activites'
   | 'applications-connectees'
+  | 'application-windows'
   | 'developpeur'
   | 'bio'
   | 'visibilite'
@@ -102,6 +104,15 @@ const SECTIONS = [
       { id: 'accessibilite' as ProfileSection, label: 'Accessibilité', desc: 'Options d’accessibilité',   icon: UserCircle },
       { id: 'langue-heure'  as ProfileSection, label: 'Langue et heure', desc: 'Langue, fuseau horaire',  icon: Translate  },
       { id: 'systeme'       as ProfileSection, label: 'Système',       desc: 'Préférences système',       icon: Keyboard   },
+    ],
+  },
+  {
+    id: 'application' as const,
+    label: 'Application',
+    desc: 'Installer Mookup sur votre ordinateur',
+    icon: WindowsLogo,
+    items: [
+      { id: 'application-windows' as ProfileSection, label: 'Installer l’application Windows', desc: 'Télécharger la dernière version de Mookup', icon: WindowsLogo },
     ],
   },
   {

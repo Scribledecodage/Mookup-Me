@@ -9,6 +9,7 @@ import { auth, db } from '@/lib/firebase';
 const DEFAULT_PREFERENCES = {
   showOnlineStatus: true,
   showLastActivity: true,
+  showActivity: true,
   readReceipts: true,
 };
 
@@ -54,7 +55,7 @@ export default function ActivityPrivacyPage() {
     setError('');
     try {
       await setDoc(doc(db, 'users', user.uid), { activityPrivacy: preferences, updatedAt: new Date() }, { merge: true });
-      await setDoc(doc(db, 'status', user.uid), { visible: preferences.showOnlineStatus, showLastActivity: preferences.showLastActivity }, { merge: true });
+      await setDoc(doc(db, 'status', user.uid), { visible: preferences.showOnlineStatus, showLastActivity: preferences.showLastActivity, showActivity: preferences.showActivity }, { merge: true });
       setIsSuccess(true);
       setTimeout(() => setIsSuccess(false), 2500);
     } catch (saveError) {
@@ -83,6 +84,12 @@ export default function ActivityPrivacyPage() {
           <Eye size={24} className="flex-shrink-0 text-blue-500" />
           <div className="min-w-0 flex-1"><h3 className="text-[15px] font-semibold text-gray-900">Dernière activité</h3><p className="mt-1 text-[13px] leading-5 text-gray-500">Permettre à vos contacts de voir votre dernière connexion.</p></div>
           <PreferenceToggle checked={preferences.showLastActivity} onChange={(value) => updatePreference('showLastActivity', value)} label="Afficher ma dernière activité" />
+        </section>
+
+        <section className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <Pulse size={24} className="flex-shrink-0 text-blue-500" />
+          <div className="min-w-0 flex-1"><h3 className="text-[15px] font-semibold text-gray-900">Activité dans les applications</h3><p className="mt-1 text-[13px] leading-5 text-gray-500">Partager l’application utilisée et ce que vous y faites.</p></div>
+          <PreferenceToggle checked={preferences.showActivity} onChange={(value) => updatePreference('showActivity', value)} label="Afficher mon activité dans les applications" />
         </section>
 
         <section className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

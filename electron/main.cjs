@@ -8,6 +8,7 @@ const DEFAULT_PRODUCTION_URL = 'https://mookup-me.vercel.app';
 const isDevelopment = process.argv.includes('--dev') || !app.isPackaged;
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const UPDATE_INSTALL_DELAY_MS = 5000;
+const SYSTEM_ACTIVITY_POLL_INTERVAL_MS = 3000;
 
 // Le mode dev et le mode production ne doivent pas partager le verrou Electron.
 // Sinon `npm run electron` se ferme silencieusement si `electron:dev` tourne encore.
@@ -57,6 +58,11 @@ function getTaskUrl(action, argv = []) {
 let mainWindow = null;
 let updateCheckTimer = null;
 let updateInstallTimer = null;
+let systemActivityTimer = null;
+let systemActivityPollInFlight = false;
+let getWindowsModulePromise = null;
+let lastSystemActivityKey = '';
+let currentSystemActivity = null;
 let isInstallingUpdate = false;
 let isQuitting = false;
 const UPDATE_STATE_FILE = 'pending-update.json';
@@ -66,6 +72,8 @@ let recentContacts = [];
 const MAX_UPDATE_DEBUG_HISTORY = 200;
 
 ipcMain.handle('electron-update-debug-history', () => updateDebugHistory);
+
+ipcMain.handle('electron-system-activity-current', () => currentSystemActivity);
 
 function getUpdateLogPath() {
   const logDirectory = app.getPath('logs');
@@ -178,6 +186,96 @@ function sendUpdateStatus(status, details = {}) {
 
 function setUpdateTitle(title) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(title);
+}
+
+function getExecutableIconDataUrl(executablePath) {
+  if (!executablePath || !fs.existsSync(executablePath)) return null;
+  try {
+    const icon = nativeImage.createFromPath(executablePath);
+    if (icon.isEmpty()) return null;
+    return icon.resize({ width: 64, height: 64 }).toDataURL();
+  } catch {
+    return null;
+  }
+}
+
+function formatDesktopAppName(ownerName) {
+  const labels = {
+    chrome: 'Google Chrome',
+    msedge: 'Microsoft Edge',
+    firefox: 'Mozilla Firefox',
+    code: 'Visual Studio Code',
+    discord: 'Discord',
+    spotify: 'Spotify',
+    steam: 'Steam',
+    explorer: 'Explorateur de fichiers',
+    notepad: 'Bloc-notes',
+  };
+  const normalized = ownerName.toLowerCase().replace(/\\.exe$/i, '');
+  return labels[normalized] || ownerName || 'Application';
+}
+
+function isMookupWindow(windowInfo) {
+  const ownerName = String(windowInfo?.owner?.name || '').toLowerCase();
+  const ownerPath = String(windowInfo?.owner?.path || '').toLowerCase();
+  const title = String(windowInfo?.title || '').toLowerCase();
+  return ownerName.includes('mookup')
+    || ownerPath.includes('mookup')
+    || (ownerName === 'electron' && title.includes('mookup'));
+}
+
+async function getSystemActivity() {
+  try {
+    getWindowsModulePromise ||= import('get-windows');
+    const { activeWindow } = await getWindowsModulePromise;
+    const windowInfo = await activeWindow();
+    if (!windowInfo || isMookupWindow(windowInfo)) return null;
+
+    const ownerName = String(windowInfo.owner?.name || 'Application').replace(/\\.exe$/i, '').trim();
+    const title = String(windowInfo.title || '').trim();
+    const appName = formatDesktopAppName(ownerName);
+    return {
+      appId: `desktop:${appName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      appName,
+      details: title || `Utilise ${appName}`,
+      logoUrl: getExecutableIconDataUrl(windowInfo.owner?.path),
+    };
+  } catch (error) {
+    // Certaines plateformes demandent une permission d’accessibilité : garder
+    // l’activité Mookup comme repli si la fenêtre active est inaccessible.
+    if (!getSystemActivity.permissionWarningShown) {
+      getSystemActivity.permissionWarningShown = true;
+      console.warn('[System activity] Fenêtre active indisponible:', error.message);
+    }
+    return null;
+  }
+}
+
+async function pollSystemActivity() {
+  if (systemActivityPollInFlight || !mainWindow || mainWindow.isDestroyed()) return;
+  systemActivityPollInFlight = true;
+  try {
+    const activity = await getSystemActivity();
+    const key = activity ? JSON.stringify(activity) : 'mookup';
+    if (key === lastSystemActivityKey) return;
+    lastSystemActivityKey = key;
+    currentSystemActivity = activity;
+    mainWindow.webContents.send('electron-system-activity', activity);
+  } finally {
+    systemActivityPollInFlight = false;
+  }
+}
+
+function startSystemActivityTracking() {
+  if (systemActivityTimer) return;
+  void pollSystemActivity();
+  systemActivityTimer = setInterval(() => void pollSystemActivity(), SYSTEM_ACTIVITY_POLL_INTERVAL_MS);
+}
+
+function stopSystemActivityTracking() {
+  if (!systemActivityTimer) return;
+  clearInterval(systemActivityTimer);
+  systemActivityTimer = null;
 }
 
 function requestUpdateInstall(info) {
@@ -606,6 +704,7 @@ if (!gotSingleInstanceLock) {
     isQuitting = true;
     if (updateCheckTimer) clearInterval(updateCheckTimer);
     if (updateInstallTimer) clearTimeout(updateInstallTimer);
+    stopSystemActivityTracking();
   });
 
   app.whenReady().then(() => {
@@ -620,6 +719,7 @@ if (!gotSingleInstanceLock) {
     configureApplicationMenu();
     configureSessionPermissions();
     createMainWindow();
+    startSystemActivityTracking();
     configureAutoUpdater();
 
     app.on('activate', () => {

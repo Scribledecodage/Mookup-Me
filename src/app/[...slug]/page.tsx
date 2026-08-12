@@ -16,6 +16,7 @@ const PROFILE_SECTIONS = new Set([
   'langue-heure',
   'confidentialite-activites',
   'applications-connectees',
+  'application-windows',
   'developpeur',
   'bio',
   'visibilite',

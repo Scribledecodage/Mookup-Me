@@ -22,6 +22,7 @@ import SystemPage from './pages/SystemPage';
 import TermsPage from './pages/TermsPage';
 import VoiceVideoPage from './pages/VoiceVideoPage';
 import AdminPage from './pages/AdminPage';
+import WindowsAppPage from './pages/WindowsAppPage';
 
 const PROFILE_PAGES = {
   infos: AccountInfoPage,
@@ -42,6 +43,7 @@ const PROFILE_PAGES = {
   'langue-heure': LanguageTimePage,
   connexions: ConnectionsPage,
   'applications-connectees': ConnectedAppsPage,
+  'application-windows': WindowsAppPage,
   developpeur: DeveloperPage,
   'conditions-utilisation': TermsPage,
   confidentialite: PrivacyPage,
