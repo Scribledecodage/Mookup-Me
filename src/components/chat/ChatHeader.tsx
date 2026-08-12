@@ -57,7 +57,7 @@ export default function ChatHeader({
     : '';
 
   return (
-    <header className="bg-[#f9f9f9] px-4 py-3 h-[60px] flex justify-between items-center border-b border-gray-200 z-10 w-full overflow-hidden flex-shrink-0">
+    <header className="bg-[#f9f9f9] px-4 py-3 h-[60px] flex justify-between items-center z-10 w-full overflow-hidden flex-shrink-0">
       <div className="flex items-center gap-2 min-w-0 flex-1">
         {onBack && (
           <button
