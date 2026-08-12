@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, shell } = require('electron');
+const { app, BrowserWindow, dialog, Menu, session, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 
@@ -124,6 +124,82 @@ function configureAutoUpdater() {
   updateCheckTimer = setInterval(() => void checkForUpdates(), UPDATE_CHECK_INTERVAL_MS);
 }
 
+function showAboutDialog() {
+  const parentWindow = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  const appName = app.getName() || 'Mookup';
+  const version = app.getVersion();
+
+  void dialog.showMessageBox(parentWindow, {
+    type: 'info',
+    title: `À propos de ${appName}`,
+    message: appName,
+    detail: [
+      `Version : ${version}`,
+      'Développé par : Team Mookup',
+      'Application Electron de messagerie',
+      `Electron : ${process.versions.electron}`,
+      `Plateforme : ${process.platform} ${process.arch}`,
+    ].join('\\n'),
+    buttons: ['OK'],
+  });
+}
+
+function configureApplicationMenu() {
+  const template = [
+    {
+      label: 'File',
+      submenu: [
+        { role: 'quit', label: 'Quitter' },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo', label: 'Annuler' },
+        { role: 'redo', label: 'Rétablir' },
+        { type: 'separator' },
+        { role: 'cut', label: 'Couper' },
+        { role: 'copy', label: 'Copier' },
+        { role: 'paste', label: 'Coller' },
+        { role: 'selectAll', label: 'Tout sélectionner' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload', label: 'Recharger' },
+        { role: 'forceReload', label: 'Forcer le rechargement' },
+        { type: 'separator' },
+        { role: 'toggleDevTools', label: 'Outils de développement' },
+        { type: 'separator' },
+        { role: 'resetZoom', label: 'Zoom par défaut' },
+        { role: 'zoomIn', label: 'Zoom avant' },
+        { role: 'zoomOut', label: 'Zoom arrière' },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: 'Plein écran' },
+      ],
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize', label: 'Réduire' },
+        { role: 'close', label: 'Fermer' },
+      ],
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'À propos de Mookup',
+          click: () => showAboutDialog(),
+        },
+      ],
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function configureSessionPermissions() {
   const allowedPermissions = new Set([
     'media',
@@ -161,7 +237,8 @@ function createMainWindow() {
     title: 'Mookup',
     icon: iconPath,
     backgroundColor: '#111318',
-    autoHideMenuBar: true,
+    // Afficher la vraie barre de menus native Windows, horizontale.
+    autoHideMenuBar: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -240,6 +317,7 @@ if (!gotSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
+    configureApplicationMenu();
     configureSessionPermissions();
     createMainWindow();
     configureAutoUpdater();
