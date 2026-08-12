@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
   platform: process.platform,
   electronVersion: process.versions.electron,
+  getUpdateDebugHistory: () => ipcRenderer.invoke('electron-update-debug-history'),
   onUpdateStatus: (listener) => {
     if (typeof listener !== 'function') return () => {};
 

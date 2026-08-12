@@ -448,6 +448,33 @@ export default function Home() {
     publicConsoleMessageLoggedRef.current = true;
   }, [loading, user]);
 
+  // Relaye les logs du processus principal dans la console des DevTools Chromium.
+  // L’historique permet aussi de voir les événements survenus avant le montage React.
+  useEffect(() => {
+    const electronAPI = window.electronAPI;
+    if (!electronAPI) return;
+
+    const logDebug = (entry: ElectronUpdateDebugEntry, source = 'live') => {
+      console.info(`[Electron update][${source}] ${entry.event}`, entry.details || {});
+    };
+    const removeDebugListener = electronAPI.onUpdateDebug?.(entry => logDebug(entry));
+    const removeStatusListener = electronAPI.onUpdateStatus?.(status => {
+      console.info('[Electron update][status]', status);
+    });
+
+    const historyPromise = electronAPI.getUpdateDebugHistory?.();
+    if (historyPromise) {
+      void historyPromise
+        .then(history => history.forEach(entry => logDebug(entry, 'history')))
+        .catch(error => console.warn('[Electron update] Impossible de lire l’historique', error));
+    }
+
+    return () => {
+      removeDebugListener?.();
+      removeStatusListener?.();
+    };
+  }, []);
+
   const handleStartPrivateChat = async (otherUser: any) => {
     if (!user) return;
     const uid1 = user.uid;

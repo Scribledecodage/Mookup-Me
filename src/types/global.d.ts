@@ -21,6 +21,7 @@ interface Window {
     isElectron: boolean;
     platform: string;
     electronVersion: string;
+    getUpdateDebugHistory?: () => Promise<ElectronUpdateDebugEntry[]>;
     onUpdateStatus?: (listener: (status: ElectronUpdateStatus) => void) => () => void;
     onUpdateDebug?: (listener: (entry: ElectronUpdateDebugEntry) => void) => () => void;
   };

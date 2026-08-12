@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, Menu, session, shell } = require('electron');
+const { app, BrowserWindow, dialog, Menu, session, shell, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -43,6 +43,10 @@ let updateInstallTimer = null;
 let isInstallingUpdate = false;
 let isQuitting = false;
 const UPDATE_STATE_FILE = 'pending-update.json';
+const updateDebugHistory = [];
+const MAX_UPDATE_DEBUG_HISTORY = 200;
+
+ipcMain.handle('electron-update-debug-history', () => updateDebugHistory);
 
 function getUpdateLogPath() {
   const logDirectory = app.getPath('logs');
@@ -57,8 +61,11 @@ function writeUpdateLog(event, details = {}) {
     details,
   };
 
+  updateDebugHistory.push(entry);
+  if (updateDebugHistory.length > MAX_UPDATE_DEBUG_HISTORY) updateDebugHistory.shift();
+
   try {
-    fs.appendFileSync(getUpdateLogPath(), `${JSON.stringify(entry)}\\n`, 'utf8');
+    fs.appendFileSync(getUpdateLogPath(), `${JSON.stringify(entry)}\n`, 'utf8');
   } catch (error) {
     console.error('[Auto-update] Impossible d’écrire le journal:', error);
   }
@@ -132,6 +139,38 @@ function setUpdateTitle(title) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(title);
 }
 
+function requestUpdateInstall(info) {
+  if (isInstallingUpdate || isQuitting) return;
+
+  isInstallingUpdate = true;
+  writeUpdateLog('installer-launch-requested', {
+    version: info.version,
+    silent: false,
+    forceRunAfter: true,
+  });
+
+  try {
+    // Laisser l’installeur Windows afficher ses éventuelles confirmations rend
+    // l’échec visible et garantit que le raccourci est recréé avec la nouvelle icône.
+    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.quitAndInstall(false, true);
+  } catch (error) {
+    writeUpdateLog('installer-launch-failed', { message: error.message, stack: error.stack });
+    isInstallingUpdate = false;
+    sendUpdateStatus('error', { message: error.message });
+    return;
+  }
+
+  // Si Electron n’a pas reçu l’évènement de fermeture après quelques secondes,
+  // demander une seconde fois sa fermeture afin de laisser electron-updater
+  // terminer l’installation qu’il vient de lancer.
+  setTimeout(() => {
+    if (isQuitting) return;
+    writeUpdateLog('installer-quit-fallback', { version: info.version });
+    app.quit();
+  }, 5000);
+}
+
 function configureAutoUpdater() {
   // electron-updater ne fonctionne qu'avec une application empaquetée.
   // Le flag permet de tester le reste de l'application sans contacter GitHub.
@@ -185,38 +224,19 @@ function configureAutoUpdater() {
     setUpdateTitle(`Mookup — redémarrage pour la version ${info.version}`);
     sendUpdateStatus('downloaded', { version: info.version });
 
-    // L’installeur NSIS doit être lancé pendant que l’application est encore
-    // ouverte, puis Electron doit quitter pour libérer les fichiers Windows.
+    // Laisser la notification et les logs atteindre le renderer avant de lancer
+    // l’installeur Windows, puis redémarrer automatiquement l’application.
     if (updateInstallTimer) clearTimeout(updateInstallTimer);
-    updateInstallTimer = setTimeout(() => {
-      if (isInstallingUpdate || isQuitting) return;
-      isInstallingUpdate = true;
-      writeUpdateLog('installer-launch-requested', { version: info.version, silent: true, forceRunAfter: true });
-
-      try {
-        // Installation NSIS silencieuse, puis redémarrage forcé de Mookup.
-        autoUpdater.quitAndInstall(true, true);
-      } catch (error) {
-        writeUpdateLog('installer-launch-failed', { message: error.message, stack: error.stack });
-        isInstallingUpdate = false;
-        sendUpdateStatus('error', { message: error.message });
-        return;
-      }
-
-      // Sécurité : si un antivirus ou Windows empêche Electron de quitter
-      // après le lancement de l’installeur, fermer quand même l’ancien processus.
-      setTimeout(() => {
-        if (!isQuitting) {
-          writeUpdateLog('forced-process-exit', { reason: 'Electron did not quit after installer launch' });
-          app.exit(0);
-        }
-      }, 3000);
-    }, UPDATE_INSTALL_DELAY_MS);
+    updateInstallTimer = setTimeout(() => requestUpdateInstall(info), UPDATE_INSTALL_DELAY_MS);
   });
 
   autoUpdater.on('before-quit-for-update', () => {
     writeUpdateLog('before-quit-for-update');
     isQuitting = true;
+  });
+
+  app.on('will-quit', () => {
+    writeUpdateLog('will-quit', { installingUpdate: isInstallingUpdate });
   });
 
   autoUpdater.on('error', (error) => {
@@ -233,6 +253,12 @@ function configureAutoUpdater() {
       writeUpdateLog('update-check-failed', { message: error.message });
     }
   };
+
+  writeUpdateLog('auto-updater-configured', {
+    packaged: app.isPackaged,
+    platform: process.platform,
+    updateCheckIntervalMs: UPDATE_CHECK_INTERVAL_MS,
+  });
 
   // Laisser la fenêtre démarrer avant le premier accès réseau.
   setTimeout(() => void checkForUpdates(), 8000);
