@@ -1,49 +1,45 @@
-import { execSync } from 'child_process';
-import fs from 'fs';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 
-// Configuration
-const VERSION = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const version = packageJson.version;
+const tag = `v${version}`;
 
-async function release() {
-  console.log(`🚀 Préparation de la release v${VERSION}...`);
-
-  try {
-    // 1. Git add et commit
-    console.log("📦 Préparation des fichiers...");
-    execSync('git add .');
-    try {
-      execSync(`git commit -m "build: release v${VERSION}"`);
-      console.log("✅ Fichiers commités.");
-    } catch (e) {
-      console.log("ℹ️ Aucun nouveau fichier à commiter.");
-    }
-
-    // 2. Git push du code
-    console.log("📤 Push du code vers GitHub...");
-    execSync('git push origin main'); 
-
-    // 3. Création et push du tag Git (déclenche GitHub Actions)
-    console.log(`🏷️ Création du tag de version v${VERSION}...`);
-    try {
-      // Supprime le tag local et distant s'il existe déjà pour forcer la mise à jour
-      execSync(`git tag -d v${VERSION}`, { stdio: 'ignore' });
-      execSync(`git push origin :refs/tags/v${VERSION}`, { stdio: 'ignore' });
-    } catch (e) {
-      // Ignorer l'erreur si le tag n'existe pas
-    }
-    
-    execSync(`git tag v${VERSION}`);
-    console.log("🚀 Déclenchement de la création de l'APK sur GitHub...");
-    execSync('git push origin --tags');
-
-    console.log(`\n✅ Succès ! Le code a été envoyé avec le tag v${VERSION}.`);
-    console.log(`⚙️ GitHub Actions est en train de générer l'APK et de le publier automatiquement.`);
-    console.log(`🔗 Suivez la progression ici : https://github.com/Clipdescript/Mookup/actions`);    
-
-  } catch (error) {
-    console.error("❌ Une erreur est survenue lors de la release :");       
-    console.error(error.message);     
-  }
+function git(...args) {
+  return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] }).trim();
 }
 
-release();
+function fail(message) {
+  console.error(`❌ ${message}`);
+  process.exitCode = 1;
+}
+
+try {
+  if (!/^\d+\.\d+\.\d+$/.test(version)) {
+    throw new Error(`La version ${version} doit respecter le format semver X.Y.Z.`);
+  }
+
+  const branch = git('branch', '--show-current');
+  if (!branch) throw new Error('Impossible de déterminer la branche courante.');
+
+  if (git('status', '--porcelain')) {
+    throw new Error('Le dépôt contient des modifications non commitées. Commitez-les avant la release.');
+  }
+
+  const existingTag = (() => {
+    try {
+      return git('rev-parse', '--verify', `refs/tags/${tag}`);
+    } catch {
+      return '';
+    }
+  })();
+  if (existingTag) throw new Error(`Le tag ${tag} existe déjà.`);
+
+  console.log(`🚀 Publication de Mookup ${tag} depuis ${branch}...`);
+  execFileSync('git', ['tag', '-a', tag, '-m', `Release ${tag}`], { stdio: 'inherit' });
+  execFileSync('git', ['push', 'origin', branch, tag], { stdio: 'inherit' });
+
+  console.log('✅ Tag envoyé. GitHub Actions va compiler et publier les installeurs Electron Windows, macOS et Linux.');
+} catch (error) {
+  fail(error instanceof Error ? error.message : String(error));
+}

@@ -1,9 +1,21 @@
 {
   "name": "mookup",
   "version": "2.0.2",
+  "description": "Mookup desktop application",
+  "author": "Scribledecodage",
   "private": true,
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev",
+    "electron": "electron electron/main.cjs",
+    "electron:dev": "electron electron/main.cjs --dev",
+    "preelectron:pack": "node scripts/prepare-electron-package.mjs",
+    "preelectron:dist": "node scripts/prepare-electron-package.mjs",
+    "preelectron:publish": "node scripts/prepare-electron-package.mjs",
+    "electron:pack": "electron-builder --dir",
+    "electron:dist": "electron-builder",
+    "electron:publish": "electron-builder --publish always",
+    "electron:release": "npm run electron:publish",
     "prebuild": "node scripts/generate-version.mjs",
     "build": "next build",
     "start": "next start",
@@ -42,6 +54,7 @@
     "ai": "^6.0.208",
     "color-thief-browser": "^2.0.2",
     "edge-tts-universal": "^1.4.0",
+    "electron-updater": "^6.8.9",
     "firebase": "^12.14.0",
     "firebase-admin": "14.2.0",
     "framer-motion": "^12.40.0",
@@ -70,9 +83,56 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "43.4.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "build": {
+    "appId": "com.mookup.app",
+    "productName": "Mookup",
+    "asar": true,
+    "compression": "maximum",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "directories": {
+      "app": ".electron-app",
+      "output": "dist"
+    },
+    "files": [
+      "**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "Mookup-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "target": ["dmg"],
+      "artifactName": "Mookup-${version}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Network",
+      "artifactName": "Mookup-${version}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Scribledecodage",
+      "repo": "Mookup-Me",
+      "releaseType": "release"
+    }
   }
 }

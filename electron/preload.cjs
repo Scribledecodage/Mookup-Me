@@ -1,0 +1,14 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  isElectron: true,
+  platform: process.platform,
+  electronVersion: process.versions.electron,
+  onUpdateStatus: (listener) => {
+    if (typeof listener !== 'function') return () => {};
+
+    const handler = (_event, status) => listener(status);
+    ipcRenderer.on('electron-update-status', handler);
+    return () => ipcRenderer.removeListener('electron-update-status', handler);
+  },
+});
