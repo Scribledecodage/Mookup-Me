@@ -66,8 +66,10 @@ export default function RootLayout({
             :root { --theme-color: #ffffff; }
           }
         `}} />
-        <meta name="theme-color" content="#f9f9f9" media="(min-width: 768px)" />
-        <meta name="theme-color" content="#ffffff" media="(max-width: 767px)" />
+        <meta name="theme-color" content="#f9f9f9" media="(prefers-color-scheme: light) and (min-width: 768px)" />
+        <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light) and (max-width: 767px)" />
+        <meta name="theme-color" content="#15181e" media="(prefers-color-scheme: dark) and (min-width: 768px)" />
+        <meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark) and (max-width: 767px)" />
         <script
           dangerouslySetInnerHTML={{
             __html: `

@@ -12,7 +12,7 @@ import { Pulse, FileImage, PencilSimple, Plus } from '@phosphor-icons/react';
 export function StatusRing({
   count,
   size = 50,
-  color = '#3b82f6',
+  color = '#8b5cf6',
   strokeWidth = 3,
 }: {
   count: number;
@@ -63,6 +63,12 @@ interface StatusItem {
   createdAt: Timestamp;
 }
 
+interface StatusUser {
+  uid: string;
+  displayName?: string | null;
+  photoURL?: string | null;
+}
+
 interface UserStatus {
   uid: string;
   displayName: string;
@@ -71,31 +77,37 @@ interface UserStatus {
   updatedAt: Timestamp;
 }
 
-export default function StatusView({ user }: { user: any }) {
+function getInitialStatusRoute(): { creation: 'text' | 'media' | null; viewingUid: string | null } {
+  if (typeof window === 'undefined') return { creation: null, viewingUid: null };
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  if (parts[0] !== 'statuts') return { creation: null, viewingUid: null };
+  if (parts[1] === 'creer' && parts[2] === 'texte') return { creation: 'text', viewingUid: null };
+  if (parts[1] === 'creer' && parts[2] === 'media') return { creation: 'media', viewingUid: null };
+  if (parts[1] === 'voir' && parts[2]) {
+    try {
+      return { creation: null, viewingUid: decodeURIComponent(parts[2]) };
+    } catch {
+      return { creation: null, viewingUid: parts[2] };
+    }
+  }
+  return { creation: null, viewingUid: null };
+}
+
+export default function StatusView({ user }: { user: StatusUser }) {
+  const initialRoute = getInitialStatusRoute();
   const [statuses, setStatuses] = useState<UserStatus[]>([]);
   const [myStatus, setMyStatus] = useState<UserStatus | null>(null);
   
-  const [isCreatingText, setIsCreatingText] = useState(false);
-  const [isCreatingMedia, setIsCreatingMedia] = useState(false);
+  const [isCreatingText, setIsCreatingText] = useState(initialRoute.creation === 'text');
+  const [isCreatingMedia, setIsCreatingMedia] = useState(initialRoute.creation === 'media');
   const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  // Pousse un état historique quand le créateur s'ouvre
-  useEffect(() => {
-    if (isCreatingText || isCreatingMedia) {
-      window.history.pushState({ appSubPage: 'statusCreator' }, '');
-    }
-  }, [isCreatingText, isCreatingMedia]);
 
   // Intercepte le retour physique pour fermer le créateur aussi
   useEffect(() => {
     const handleAppBack = () => {
-      if (isCreatingText) {
-        setIsCreatingText(false);
-        window._appBackHandled = true;
-      } else if (isCreatingMedia) {
-        setIsCreatingMedia(false);
-        setSelectedMediaFile(null);
+      if (isCreatingText || isCreatingMedia) {
+        closeStatusCreator();
         window._appBackHandled = true;
       }
     };
@@ -103,12 +115,41 @@ export default function StatusView({ user }: { user: any }) {
     return () => window.removeEventListener('app_back', handleAppBack);
   }, [isCreatingText, isCreatingMedia]);
   
+  const [viewingStatusUid, setViewingStatusUid] = useState<string | null>(initialRoute.viewingUid);
   const [viewingStatusUser, setViewingStatusUser] = useState<UserStatus | null>(null);
 
-  // Pousse un état historique quand le viewer s'ouvre
+  const closeStatusCreator = () => {
+    setIsCreatingText(false);
+    setIsCreatingMedia(false);
+    setSelectedMediaFile(null);
+    if (window.location.pathname.startsWith('/statuts/creer')) {
+      window.history.replaceState({ appPage: '/statuts' }, '', '/statuts');
+    }
+  };
+
+  const closeStatusViewer = () => {
+    setViewingStatusUser(null);
+    setViewingStatusUid(null);
+    if (window.location.pathname.startsWith('/statuts/voir')) {
+      window.history.replaceState({ appPage: '/statuts' }, '', '/statuts');
+    }
+  };
+
+  // Chaque sous-écran de statut possède sa propre URL partageable.
+  useEffect(() => {
+    if (isCreatingText) {
+      const path = '/statuts/creer/texte';
+      if (window.location.pathname !== path) window.history.pushState({ appSubPage: path }, '', path);
+    } else if (isCreatingMedia) {
+      const path = '/statuts/creer/media';
+      if (window.location.pathname !== path) window.history.pushState({ appSubPage: path }, '', path);
+    }
+  }, [isCreatingText, isCreatingMedia]);
+
   useEffect(() => {
     if (viewingStatusUser) {
-      window.history.pushState({ appSubPage: 'statusViewer' }, '');
+      const path = `/statuts/voir/${encodeURIComponent(viewingStatusUser.uid)}`;
+      if (window.location.pathname !== path) window.history.pushState({ appSubPage: path }, '', path);
     }
   }, [viewingStatusUser]);
 
@@ -116,13 +157,21 @@ export default function StatusView({ user }: { user: any }) {
   useEffect(() => {
     const handleAppBack = () => {
       if (viewingStatusUser) {
-        setViewingStatusUser(null);
+        closeStatusViewer();
         window._appBackHandled = true;
       }
     };
     window.addEventListener('app_back', handleAppBack);
-    return () => window.removeEventListener('app_back', handleAppBack);
-  }, [viewingStatusUser]);
+    return () => window.removeEventListener('app_back', handleAppBack);  }, [viewingStatusUser]);
+
+  // Restaure un statut directement depuis /statuts/voir/:uid après le chargement Firestore.
+  useEffect(() => {
+    if (!viewingStatusUid || viewingStatusUser) return;
+    const matchingStatus = viewingStatusUid === user.uid
+      ? myStatus
+      : statuses.find(status => status.uid === viewingStatusUid) || null;
+    if (matchingStatus) setViewingStatusUser(matchingStatus);
+  }, [myStatus, statuses, user.uid, viewingStatusUid, viewingStatusUser]);
 
   const handleMediaClick = (e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {
@@ -186,7 +235,7 @@ export default function StatusView({ user }: { user: any }) {
   }, [user]);
 
   if (isCreatingText) {
-    return <StatusCreator user={user} type="text" onClose={() => setIsCreatingText(false)} />;
+    return <StatusCreator user={user} type="text" onClose={closeStatusCreator} />;
   }
 
   if (isCreatingMedia) {
@@ -195,10 +244,7 @@ export default function StatusView({ user }: { user: any }) {
         user={user} 
         type="media" 
         initialFile={selectedMediaFile}
-        onClose={() => {
-          setIsCreatingMedia(false);
-          setSelectedMediaFile(null);
-        }} 
+        onClose={closeStatusCreator}
       />
     );
   }
@@ -209,13 +255,13 @@ export default function StatusView({ user }: { user: any }) {
         key={viewingStatusUser.uid}
         userStatus={viewingStatusUser} 
         currentUserId={user?.uid}
-        onClose={() => setViewingStatusUser(null)} 
+        onClose={closeStatusViewer}
       />
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#f0f2f5] overflow-y-auto">
+    <div className="status-list-view flex flex-col h-full bg-[#f0f2f5] overflow-y-auto">
       <input 
         type="file" 
         accept="image/*,video/*" 
@@ -224,7 +270,7 @@ export default function StatusView({ user }: { user: any }) {
         onChange={handleFileChange} 
       />
 
-      <div className="bg-white px-4 py-3 mt-2 shadow-sm flex items-center justify-between cursor-pointer" onClick={() => myStatus ? setViewingStatusUser({ ...myStatus, photoURL: user?.photoURL || myStatus.photoURL }) : handleMediaClick()}>
+      <div className="status-list-card bg-white px-4 py-3 mt-2 shadow-sm flex items-center justify-between cursor-pointer" onClick={() => myStatus ? setViewingStatusUser({ ...myStatus, photoURL: user?.photoURL || myStatus.photoURL }) : handleMediaClick()}>
         <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0" style={{ width: 50, height: 50 }}>
             {/* Anneau segmenté selon le nb de statuts */}
@@ -234,8 +280,8 @@ export default function StatusView({ user }: { user: any }) {
             <div className={myStatus ? 'p-[4px]' : 'p-[3px]'}>
               <UserAvatar
                 uid={user?.uid || ''}
-                photoURL={user?.photoURL}
-                displayName={user?.displayName}
+                photoURL={user?.photoURL || undefined}
+                displayName={user?.displayName || undefined}
                 size={myStatus ? 42 : 44}
               />
             </div>
@@ -256,32 +302,32 @@ export default function StatusView({ user }: { user: any }) {
         <div className="flex items-center gap-3">
           <button 
             type="button"
-            className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors z-10 relative"
+            className="status-action-button w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors z-10 relative"
             onClick={handleMediaClick}
             onTouchEnd={handleMediaClick}
           >
-            <FileImage size={20} className="text-gray-600" />
+            <FileImage size={20} className="status-action-icon text-gray-600" />
           </button>
           <button 
             type="button"
-            className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors z-10 relative"
+            className="status-action-button w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors z-10 relative"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCreatingText(true); }}
             onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); setIsCreatingText(true); }}
           >
-            <PencilSimple size={20} className="text-gray-600" />
+            <PencilSimple size={20} className="status-action-icon text-gray-600" />
           </button>
         </div>
       </div>
 
       <div className="px-4 py-2 mt-2">
-        <h3 className="text-[14px] font-medium text-gray-500 uppercase">Statuts récents</h3>
+        <h3 className="status-section-label text-[14px] font-medium text-gray-500 uppercase">Statuts récents</h3>
       </div>
 
-      <div className="bg-white shadow-sm flex-1">
+      <div className="status-list-card bg-white shadow-sm flex-1">
         {statuses.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <Pulse size={40} className="text-gray-400" />
+            <div className="status-empty-icon w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <Pulse size={40} className="status-empty-icon-symbol text-gray-400" />
             </div>
             <p className="text-gray-500 text-[15px]">Aucune mise à jour récente</p>
           </div>
@@ -290,7 +336,7 @@ export default function StatusView({ user }: { user: any }) {
             {statuses.map(stat => (
               <div 
                 key={stat.uid} 
-                className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0"
+                className="status-list-item flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0"
                 onClick={() => setViewingStatusUser(stat)}
                 onTouchEnd={(e) => { e.preventDefault(); setViewingStatusUser(stat); }}
               >
@@ -309,9 +355,9 @@ export default function StatusView({ user }: { user: any }) {
                   </div>
                 </div>
                 <div className="flex flex-col">
-                  <h2 className="text-[16px] font-medium text-gray-800">{stat.displayName}</h2>
-                  <p className="text-[13px] text-gray-500">
-                    Aujourd'hui à {stat.updatedAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <h2 className="status-list-name text-[16px] font-medium text-gray-800">{stat.displayName}</h2>
+                  <p className="status-list-meta text-[13px] text-gray-500">
+                    Aujourd&apos;hui à {stat.updatedAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
               </div>

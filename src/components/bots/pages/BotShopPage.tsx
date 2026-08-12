@@ -36,6 +36,7 @@ type RecommendationsResponse = {
   mode?: 'complete' | 'simple';
   banditChoiceId?: string;
   banditDecisionId?: string;
+  fallback?: boolean;
   error?: string;
   details?: string;
 };
@@ -202,8 +203,16 @@ export default function BotShopPage({
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
         });
-        const data = await response.json() as RecommendationsResponse;
-        if (!response.ok || !Array.isArray(data.bots)) throw new Error(data.details || data.error || 'Réponse Shop invalide.');
+        const responseText = await response.text();
+        let data: RecommendationsResponse;
+        try {
+          data = JSON.parse(responseText) as RecommendationsResponse;
+        } catch {
+          throw new Error(`Réponse Shop invalide (${response.status}).`);
+        }
+        if (!response.ok || data.fallback || !Array.isArray(data.bots)) {
+          throw new Error(data.details || data.error || `Réponse Shop invalide (${response.status}).`);
+        }
         if (cancelled) return;
         setRankedBots(data.bots);
         setBanditChoiceId(data.banditChoiceId);
@@ -215,7 +224,7 @@ export default function BotShopPage({
         setError('');
         setIsLoading(false);
       } catch (loadError) {
-        console.error('Erreur chargement recommandations centrales:', loadError);
+        console.warn('Recommandations centrales indisponibles, classement local utilisé:', loadError);
         if (!cancelled) {
           const message = loadError instanceof Error ? loadError.message : '';
           const isQuotaError = /RESOURCE_EXHAUSTED|quota exceeded/i.test(message);

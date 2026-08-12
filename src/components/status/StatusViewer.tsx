@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayRemove, Timestamp } from 'firebase/firestore';
 import UserAvatar from '@/components/ui/UserAvatar';
 import LinkPreviewCard from '@/components/chat/LinkPreviewCard';
 import { ArrowsIn, ArrowsOut, CaretLeft, Eye, EyeSlash, Pause, Play, Trash } from '@phosphor-icons/react';
@@ -61,10 +61,17 @@ interface StatusItem {
   bgColor?: string;
   caption?: string;
   textStyle?: StatusTextStyle;
-  createdAt: any;
+  createdAt: Timestamp;
 }
 
-export default function StatusViewer({ userStatus, currentUserId, onClose }: { userStatus: any, currentUserId: string, onClose: () => void }) {
+interface UserStatus {
+  uid: string;
+  displayName: string;
+  photoURL: string;
+  items: StatusItem[];
+}
+
+export default function StatusViewer({ userStatus, currentUserId, onClose }: { userStatus: UserStatus, currentUserId: string, onClose: () => void }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -206,10 +213,6 @@ export default function StatusViewer({ userStatus, currentUserId, onClose }: { u
       if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
     };
   }, []);
-
-  const handleCenterTap = (_event: React.MouseEvent<HTMLDivElement>) => {
-    // géré directement par les zones de tap (couche z-20)
-  };
 
   useEffect(() => {
     if (currentItem?.type !== 'video' || !videoRef.current) return;

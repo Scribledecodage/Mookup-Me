@@ -29,7 +29,7 @@ export default function BotView({ activeSection = 'accueil', onSelectSection, on
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-white">
+    <div className="sidebar-panel flex h-full w-full flex-col bg-white">
       <div className="flex flex-col gap-0.5 overflow-y-auto px-2 py-3">
         {NAV_ITEMS.map(item => {
           const Icon = item.icon;
@@ -39,9 +39,9 @@ export default function BotView({ activeSection = 'accueil', onSelectSection, on
               key={item.id}
               type="button"
               onClick={() => handleClick(item.id)}
-              className={`flex w-full cursor-pointer items-center gap-4 rounded-xl px-4 py-3 text-left transition-all ${isActive ? 'bg-gray-200' : 'hover:bg-gray-100 active:bg-gray-200'}`}
+              className={`sidebar-item w-full cursor-pointer flex items-center gap-4 rounded-xl px-4 py-3 text-left transition-all ${isActive ? 'sidebar-item-selected bg-gray-200' : 'hover:bg-gray-100 active:bg-gray-200'}`}
             >
-              <div className={`flex h-6 w-6 flex-shrink-0 items-center justify-center ${isActive ? 'text-gray-700' : 'text-gray-500'}`}>
+              <div className={`sidebar-item-icon flex h-6 w-6 flex-shrink-0 items-center justify-center ${isActive ? 'text-gray-700' : 'text-gray-500'}`}>
                 <Icon size={22} />
               </div>
               <div className="min-w-0 flex-1">

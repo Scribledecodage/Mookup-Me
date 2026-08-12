@@ -1096,7 +1096,9 @@ export default function Chat({
       )}
 
       <ChatHeader 
-        groupId={groupId} displayName={displayName} displayAvatar={displayAvatar} 
+        groupId={groupId}
+        displayName={isBotChat ? botProfile?.name || displayName : displayName}
+        displayAvatar={isBotChat ? botProfile?.photoURL || displayAvatar : displayAvatar}
         isCustomGroup={isCustomGroup} isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen}
         isMembersPanelOpen={showMembersPanel} setIsMembersPanelOpen={setShowMembersPanel}
         isContactPanelOpen={showContactPanel} setIsContactPanelOpen={setShowContactPanel}

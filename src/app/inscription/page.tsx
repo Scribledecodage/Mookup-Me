@@ -53,10 +53,12 @@ export default function InscriptionPage() {
           html { color-scheme: dark; }
           body { background-color: #202225; color: #eceeef; }
         }
-      `}</style>
+      `}
+      </style>
 
+      <div className="public-shell public-registration">
       {/* ===== HEADER ===== */}
-      <div
+      <div className="public-hero"
         style={{
           backgroundColor: "#5046e5",
           position: "relative",
@@ -346,7 +348,7 @@ export default function InscriptionPage() {
       {/* ===== END HEADER ===== */}
 
       {/* ===== SECTION 1 – Post card ===== */}
-      <section style={{ backgroundColor: "#ffffff", minHeight: "10vh" }}>
+      <section className="public-section" style={{ backgroundColor: "#ffffff", minHeight: "10vh" }}>
         <div
           style={{
             maxWidth: 1100,
@@ -388,7 +390,7 @@ export default function InscriptionPage() {
       </section>
 
       {/* ===== SECTION 2 – Profile privacy (muted bg) ===== */}
-      <section style={{ backgroundColor: "#f0f1f3", position: "relative" }}>
+      <section className="public-section-muted" style={{ backgroundColor: "#f0f1f3", position: "relative" }}>
         {/* Wave */}
         <svg
           style={{ position: "absolute", top: -69, left: 0, width: "100%", height: 70, display: "block" }}
@@ -468,7 +470,7 @@ export default function InscriptionPage() {
       </section>
 
       {/* ===== SECTION 3 – Personnalisation ===== */}
-      <section style={{ backgroundColor: "#ffffff", position: "relative" }}>
+      <section className="public-section" style={{ backgroundColor: "#ffffff", position: "relative" }}>
         <svg
           style={{ position: "absolute", top: -69, left: 0, width: "100%", height: 70, display: "block" }}
           viewBox="0 0 1200 70"
@@ -521,7 +523,7 @@ export default function InscriptionPage() {
       </section>
 
       {/* ===== FINAL CTA ===== */}
-      <section style={{ backgroundColor: "#f0f1f3", position: "relative", padding: "140px 32px", textAlign: "center" }}>
+      <section className="public-section-muted" style={{ backgroundColor: "#f0f1f3", position: "relative", padding: "140px 32px", textAlign: "center" }}>
         <svg
           style={{ position: "absolute", top: -69, left: 0, width: "100%", height: 70, display: "block" }}
           viewBox="0 0 1200 70"
@@ -598,7 +600,7 @@ export default function InscriptionPage() {
       </section>
 
       {/* ===== FOOTER ===== */}
-      <footer style={{ backgroundColor: "#1a1a1a", padding: "24px 32px" }}>
+      <footer className="public-footer" style={{ backgroundColor: "#1a1a1a", padding: "24px 32px" }}>
         <div
           style={{
             maxWidth: 1100,
@@ -616,6 +618,7 @@ export default function InscriptionPage() {
           <div style={{ marginTop: 10 }}>© 2026 Mookup. Tous droits réservés.</div>
         </div>
       </footer>
+      </div>
 
       {/* Font Awesome CDN */}
       <link

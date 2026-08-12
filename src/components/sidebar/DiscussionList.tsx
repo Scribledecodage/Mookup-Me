@@ -65,14 +65,14 @@ export default function DiscussionList({
   };
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto overscroll-contain p-2 space-y-1 touch-pan-y">
+    <div className="sidebar-discussions h-full min-h-0 overflow-y-auto overscroll-contain p-2 space-y-1 touch-pan-y">
       {/* Groupe Team Snapchat */}
       <div 
         onClick={() => handleGroupSelect('snapchat')}
         className={`flex items-center gap-3 py-2.5 px-3 cursor-pointer transition-all rounded-xl group ${
-          selectedGroupId === 'snapchat' 
-            ? 'bg-gray-100' 
-            : 'hover:bg-gray-50'
+          selectedGroupId === 'snapchat'
+            ? 'sidebar-item-selected bg-gray-100'
+            : 'sidebar-item hover:bg-gray-50'
         }`}
       >
         <div className="relative flex-shrink-0">
@@ -93,9 +93,9 @@ export default function DiscussionList({
       <div 
         onClick={() => handleGroupSelect('general')}
         className={`flex items-center gap-3 py-2.5 px-3 cursor-pointer transition-all rounded-xl group ${
-          selectedGroupId === 'general' 
-            ? 'bg-gray-100' 
-            : 'hover:bg-gray-50'
+          selectedGroupId === 'general'
+            ? 'sidebar-item-selected bg-gray-100'
+            : 'sidebar-item hover:bg-gray-50'
         }`}
       >
         <div className="relative flex-shrink-0">
@@ -117,8 +117,8 @@ export default function DiscussionList({
         onClick={() => handleGroupSelect(`ai-${user?.uid}`)}
         className={`flex items-center gap-3 py-2.5 px-3 cursor-pointer transition-all rounded-xl group ${
           selectedGroupId === `ai-${user?.uid}` 
-            ? 'bg-gray-100' 
-            : 'hover:bg-gray-50'
+            ? 'sidebar-item-selected sidebar-item-bot-selected bg-gray-100'
+            : 'sidebar-item hover:bg-gray-50'
         }`}
       >
         <div className="relative flex-shrink-0">
@@ -158,8 +158,8 @@ export default function DiscussionList({
             onClick={() => handleGroupSelect(group.id, { name: displayName, avatar: photoURL })}
             className={`flex items-center gap-3 py-2.5 px-3 cursor-pointer transition-all rounded-xl group relative ${
               selectedGroupId === group.id 
-                ? 'bg-gray-100' 
-                : 'hover:bg-gray-50'
+                ? 'sidebar-item-selected bg-gray-100'
+                : 'sidebar-item hover:bg-gray-50'
             }`}
           >
             <div className="relative flex-shrink-0">
@@ -217,8 +217,8 @@ export default function DiscussionList({
             onClick={() => handleGroupSelect(chat.id, { name: displayName, avatar: photoURL })}
             className={`flex items-center gap-3 py-2.5 px-3 cursor-pointer transition-all rounded-xl group relative ${
               selectedGroupId === chat.id 
-                ? 'bg-gray-100' 
-                : 'hover:bg-gray-50'
+                ? 'sidebar-item-selected bg-gray-100'
+                : 'sidebar-item hover:bg-gray-50'
             }`}
           >
             <div className="relative flex-shrink-0">
@@ -227,7 +227,9 @@ export default function DiscussionList({
                   {photoURL ? (
                     <img src={photoURL} alt={displayName} className="w-full h-full object-cover" />
                   ) : isBotChat ? (
-                    <Brain size={22} weight="duotone" className="text-gray-500" aria-hidden="true" />
+                    <div className="bot-avatar-fallback flex h-full w-full items-center justify-center">
+                      <Brain size={22} weight="duotone" className="text-gray-500" aria-hidden="true" />
+                    </div>
                   ) : (
                     <UserAvatar uid={otherUserId || ''} photoURL={null} displayName={displayName} size={44} />
                   )}

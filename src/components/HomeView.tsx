@@ -35,6 +35,7 @@ import StatusView from './status/StatusView';
 
 interface HomeViewProps {
   user?: any;
+  activeTab?: string;
   onSelectGroup: (groupId: string | null, data?: { name: string, avatar?: string }) => void;
   onTabChange?: (tabId: string) => void;
   botSection?: BotSection;
@@ -45,8 +46,9 @@ interface HomeViewProps {
   onMobileOpenContent?: (tab: 'bots' | 'profil', section?: string) => void;
 }
 
-export default function HomeView({ user, onSelectGroup, onTabChange, botSection: controlledBotSection, onBotSectionChange, onProfileSectionChange, selectedGroupId, onMobileOpenContent }: HomeViewProps) {
-  const [activeTab, setActiveTab] = useState('discussion');
+export default function HomeView({ user, activeTab: controlledActiveTab, onSelectGroup, onTabChange, botSection: controlledBotSection, onBotSectionChange, onProfileSectionChange, selectedGroupId, onMobileOpenContent }: HomeViewProps) {
+  const [localActiveTab, setLocalActiveTab] = useState(controlledActiveTab || 'discussion');
+  const activeTab = controlledActiveTab ?? localActiveTab;
   const [localBotSection, setLocalBotSection] = useState<BotSection>('accueil');
   const botSection = controlledBotSection ?? localBotSection;
   const [profileSection, setProfileSection] = useState<ProfileSection>('infos');
@@ -315,7 +317,7 @@ export default function HomeView({ user, onSelectGroup, onTabChange, botSection:
       avatar: finalPhotoURL
     });
     // Basculer sur l'onglet discussion
-    setActiveTab('discussion');
+    setLocalActiveTab('discussion');
     if (onTabChange) onTabChange('discussion');
 
     if (!finalPhotoURL) {
@@ -408,7 +410,7 @@ export default function HomeView({ user, onSelectGroup, onTabChange, botSection:
   }, []);
 
   const handleTabClick = (id: string) => {
-    setActiveTab(id);
+    setLocalActiveTab(id);
     if (onTabChange) onTabChange(id);
     if (id === 'bots' && onBotSectionChange) onBotSectionChange(botSection);
   };
@@ -416,7 +418,7 @@ export default function HomeView({ user, onSelectGroup, onTabChange, botSection:
   return (
     <div className="flex h-full bg-white overflow-hidden">
       {/* Sidebar Vertical Icons (Desktop only) */}
-      <nav className="hidden md:flex flex-col items-center py-4 w-[64px] bg-white gap-4 border-r border-gray-200">
+      <nav className="sidebar-rail hidden md:flex flex-col items-center py-4 w-[64px] bg-white gap-4 border-r border-gray-200">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -447,8 +449,8 @@ export default function HomeView({ user, onSelectGroup, onTabChange, botSection:
             <button
               key={item.id}
               onClick={() => handleTabClick(item.id)}
-              className={`p-2.5 rounded-full transition-all relative group flex items-center justify-center ${
-                isActive ? 'text-blue-500 bg-blue-50/80' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+              className={`sidebar-rail-item p-2.5 rounded-full transition-all relative group flex items-center justify-center ${
+                isActive ? 'sidebar-rail-item-active text-blue-500 bg-blue-50/80' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
               }`}
               title={item.label}
             >
@@ -484,7 +486,7 @@ export default function HomeView({ user, onSelectGroup, onTabChange, botSection:
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 relative overflow-hidden bg-white border-r border-gray-200">
+        <div className="sidebar-content flex-1 relative overflow-hidden bg-white border-r border-gray-200">
           {activeTab === 'discussion' && (
             <DiscussionList 
               user={user}
@@ -535,7 +537,7 @@ export default function HomeView({ user, onSelectGroup, onTabChange, botSection:
         </div>
 
         {/* Bottom Nav (Mobile only) */}
-        <nav className="md:hidden flex justify-around items-center p-1 border-t border-gray-100 bg-white relative h-[64px] overflow-hidden">
+        <nav className="sidebar-mobile-nav md:hidden flex justify-around items-center p-1 border-t border-gray-100 bg-white relative h-[64px] overflow-hidden">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -544,12 +546,12 @@ export default function HomeView({ user, onSelectGroup, onTabChange, botSection:
               <button
                 key={item.id}
                 onClick={() => handleTabClick(item.id)}
-                className={`flex min-w-0 flex-col items-center justify-center flex-1 h-full relative ${
-                  isActive ? 'text-blue-500' : 'text-gray-400'
+                className={`sidebar-mobile-nav-item flex min-w-0 flex-col items-center justify-center flex-1 h-full relative ${
+                  isActive ? 'sidebar-mobile-nav-item-active text-blue-500' : 'text-gray-400'
                 }`}
               >
                 <div className="flex h-full flex-col items-center justify-center w-full">
-                  <div className={`transition-all duration-200 flex items-center justify-center ${isActive ? 'bg-blue-50 px-3 rounded-full' : 'px-2'}`}>
+                  <div className={`sidebar-mobile-nav-icon transition-all duration-200 flex items-center justify-center ${isActive ? 'bg-blue-50 px-3 rounded-full' : 'px-2'}`}>
                     {item.id === 'profil' ? (
                       <div className="relative flex items-center justify-center" style={{ width: 34, height: 34 }}>
                         {isActive && (
@@ -583,7 +585,7 @@ export default function HomeView({ user, onSelectGroup, onTabChange, botSection:
           onClose={() => setShowCreateGroup(false)}
           onGroupCreated={(groupId, data) => {
             onSelectGroup(groupId, data);
-            setActiveTab('discussion');
+            setLocalActiveTab('discussion');
           }}
         />
       )}

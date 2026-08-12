@@ -8,6 +8,7 @@ import {
   ArrowBendUpLeft,
   ArrowBendUpRight,
   ArrowRight,
+  Brain,
   Copy,
   DotsThree,
   Flag,
@@ -327,7 +328,7 @@ export default function MessageItem({
   const messageNameColor = isTeamMookupMessage
     ? '#7c3aed'
     : isBotMessage
-      ? (displayPhotoURL ? botAvatarColor || accentColor : '#000000')
+      ? (displayPhotoURL ? botAvatarColor || accentColor : undefined)
       : accentColor;
   const [isOptionsOpen, setIsOptionsOpen] = React.useState(false);
   const [isQuickActionsVisible, setIsQuickActionsVisible] = React.useState(false);
@@ -811,8 +812,8 @@ export default function MessageItem({
           setIsQuickActionsDismissed(false);
         }
       }}
-      className={`group relative flex min-w-0 max-w-full items-start gap-3 px-4 py-2 hover:bg-gray-50/50 transition-colors ${
-        msg.uid === 'bddbot' ? 'bg-blue-50/20' : ''
+      className={`message-row group relative flex min-w-0 max-w-full items-start gap-3 px-4 py-2 hover:bg-gray-50/50 transition-colors ${
+        isBotMessage ? 'ai-message-row' : ''
       }`}
     >
       {/* Actions rapides au survol */}
@@ -1266,6 +1267,13 @@ export default function MessageItem({
             alt={renderedDisplayName}
             className="w-10 h-10 rounded-full object-cover shadow-sm select-none"
           />
+        ) : isBotMessage ? (
+          <div
+            className="bot-avatar-fallback flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-gray-500 shadow-sm select-none"
+            aria-label={`Avatar de ${renderedDisplayName}`}
+          >
+            <Brain size={22} weight="duotone" aria-hidden="true" />
+          </div>
         ) : (
           <div
             className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-sm select-none"
@@ -1312,8 +1320,8 @@ export default function MessageItem({
                 onStartPrivateChat({ uid: msg.uid, displayName: msg.displayName });
               }
             }}
-            className={`text-[15px] font-semibold leading-none flex items-center gap-1 ${!isTeamMookupMessage && !isMe && !isBotMessage ? 'cursor-pointer hover:underline' : ''}`}
-            style={{ color: messageNameColor }}
+            className={`text-[15px] font-semibold leading-none flex items-center gap-1 ${!isTeamMookupMessage && !isMe && !isBotMessage ? 'cursor-pointer hover:underline' : ''} ${isBotMessage && !displayPhotoURL ? 'bot-message-name text-gray-900' : ''}`}
+            style={messageNameColor ? { color: messageNameColor } : undefined}
           >
             {renderedDisplayName}
             {!isTeamMookupMessage && !isMe && isCommunityBotMessage && (
@@ -1422,7 +1430,7 @@ export default function MessageItem({
           {msg.audioUrl && (
             <VoiceMessagePlayer src={msg.audioUrl} initialDuration={msg.audioDuration} waveform={msg.audioWaveform} displayName={renderedDisplayName} />
           )}
-          <div className={`${msg.forwardedFrom ? 'hidden' : isBotMessage ? 'block' : 'flex'} min-w-0 max-w-full text-[15px] text-[#2e3338] font-normal leading-relaxed break-words markdown-content ${isBotMessage ? 'w-full overflow-x-hidden' : 'overflow-x-auto'} [overflow-wrap:anywhere] [word-break:break-word]`}>
+          <div className={`${msg.forwardedFrom ? 'hidden' : isBotMessage ? 'block' : 'flex'} message-content min-w-0 max-w-full text-[15px] text-[#2e3338] font-normal leading-relaxed break-words markdown-content ${isBotMessage ? 'w-full overflow-x-hidden' : 'overflow-x-auto'} [overflow-wrap:anywhere] [word-break:break-word]`}>
 
             {(msg.uid === 'bddbot' || msg.uid === 'mistral-ai' || msg.uid?.startsWith('ai-')) ? (
               <BotMessage text={msg.text} activeSpeechSentence={activeSpeechSentence} activeSpeechWord={readingWord} activeSpeechWordIndex={readingWordIndex} />

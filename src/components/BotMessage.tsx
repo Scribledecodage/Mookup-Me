@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Copy, Check } from '@phosphor-icons/react';
 import SpeechHighlightedText from '@/components/SpeechHighlightedText';
@@ -31,8 +32,17 @@ const LANG_ICONS: Record<string, string> = {
 
 function BotCodeBlock({ children, className }: any) {
   const [copied, setCopied] = useState(false);
+  const [isDark, setIsDark] = useState(false);
   const match = /language-(\w+)/.exec(className || '');
   const language = match?.[1] ?? '';
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const updateTheme = () => setIsDark(mediaQuery.matches);
+    updateTheme();
+    mediaQuery.addEventListener('change', updateTheme);
+    return () => mediaQuery.removeEventListener('change', updateTheme);
+  }, []);
   const iconUrl = LANG_ICONS[language.toLowerCase()];
   const code = String(children).replace(/\n$/, '');
 
@@ -45,7 +55,7 @@ function BotCodeBlock({ children, className }: any) {
   // Inline code
   if (!match) {
     return (
-      <code className="bg-gray-100 text-gray-800 text-[13px] font-mono px-1 py-0.5 rounded border border-gray-200">
+      <code className="bot-inline-code bg-gray-100 text-gray-800 text-[13px] font-mono px-1 py-0.5 rounded border border-gray-200">
         {children}
       </code>
     );
@@ -53,9 +63,9 @@ function BotCodeBlock({ children, className }: any) {
 
   // Bloc de code
   return (
-    <div className="my-2 border border-gray-200 rounded overflow-hidden">
+    <div className="bot-code-block my-2 border border-gray-200 rounded overflow-hidden">
       {/* Header minimaliste */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b border-gray-200">
+      <div className="bot-code-header flex items-center justify-between px-3 py-1.5 bg-gray-50 border-b border-gray-200">
         <div className="flex items-center gap-1.5">
           {iconUrl && <img src={iconUrl} alt={language} className="w-3.5 h-3.5" />}
           <span className="text-[11px] text-gray-500 font-mono">{language || 'code'}</span>
@@ -73,13 +83,14 @@ function BotCodeBlock({ children, className }: any) {
 
       {/* Code */}
       <SyntaxHighlighter
-        style={oneLight as any}
+        style={(isDark ? oneDark : oneLight) as any}
         language={language}
         PreTag="div"
         customStyle={{
           margin: 0,
           padding: '12px 14px',
-          background: '#ffffff',
+          background: isDark ? '#151922' : '#ffffff',
+          color: isDark ? '#e5e7eb' : undefined,
           fontSize: '13px',
           lineHeight: '1.6',
           borderRadius: 0,
@@ -100,30 +111,30 @@ interface BotMessageProps {
 
 export default function BotMessage({ text, activeSpeechSentence = null, activeSpeechWord = null, activeSpeechWordIndex = null }: BotMessageProps) {
   return (
-    <div className="w-full min-w-0 max-w-full overflow-hidden text-[15px] text-gray-800 leading-relaxed break-words [overflow-wrap:anywhere] space-y-1.5">
+    <div className="bot-message-content w-full min-w-0 max-w-full overflow-hidden text-[15px] text-gray-800 leading-relaxed break-words [overflow-wrap:anywhere] space-y-1.5">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           // Paragraphes
           p: ({ children }) => (
-            <p className="block w-full mb-1.5 last:mb-0 text-gray-800">
+            <p className="bot-message-paragraph block w-full mb-1.5 last:mb-0 text-gray-800">
               <SpeechHighlightedText activeSentence={activeSpeechSentence} activeWord={activeSpeechWord} activeWordIndex={activeSpeechWordIndex}>{children}</SpeechHighlightedText>
             </p>
           ),
 
           // Titres
           h1: ({ children }) => (
-            <h1 className="text-[18px] font-semibold text-gray-900 mt-3 mb-1.5 border-b border-gray-200 pb-1">
+            <h1 className="bot-message-heading text-[18px] font-semibold text-gray-900 mt-3 mb-1.5 border-b border-gray-200 pb-1">
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-[16px] font-semibold text-gray-900 mt-2.5 mb-1">
+            <h2 className="bot-message-heading text-[16px] font-semibold text-gray-900 mt-2.5 mb-1">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-[14px] font-semibold text-gray-700 mt-2 mb-0.5">
+            <h3 className="bot-message-heading text-[14px] font-semibold text-gray-700 mt-2 mb-0.5">
               {children}
             </h3>
           ),
@@ -136,7 +147,7 @@ export default function BotMessage({ text, activeSpeechSentence = null, activeSp
             <ol className="ml-4 mb-1.5 space-y-0.5 list-decimal">{children}</ol>
           ),
           li: ({ children }) => (
-            <li className="flex items-start gap-2 text-gray-800">
+            <li className="bot-message-list-item flex items-start gap-2 text-gray-800">
               <span className="mt-[9px] w-1 h-1 rounded-full bg-gray-400 flex-shrink-0" />
               <span>{children}</span>
             </li>

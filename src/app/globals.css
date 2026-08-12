@@ -28,13 +28,6 @@
   --animate-spin-slow: spin 3s linear infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -246,5 +239,447 @@ header, nav,
   .status-playback-feedback,
   .status-item-transition {
     animation-duration: 1ms;
+  }
+}
+
+/* Palette centralisée : le thème suit automatiquement le thème du navigateur. */
+:root {
+  color-scheme: light;
+  --surface: #ffffff;
+  --surface-muted: #f9fafb;
+  --surface-subtle: #f3f4f6;
+  --surface-elevated: #e5e7eb;
+  --surface-input: #f2f3f5;
+  --surface-chat: #efeae2;
+  --line: #e5e7eb;
+  --line-subtle: #f3f4f6;
+  --text-primary: #171717;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --text-faint: #9ca3af;
+  --brand-soft: #eef2ff;
+  --brand-soft-strong: #dbeafe;
+  --error-soft: #fef2f2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: #111318;
+    --foreground: #f3f4f6;
+    --surface: #171a21;
+    --surface-muted: #1d2129;
+    --surface-subtle: #242a33;
+    --surface-elevated: #2d3440;
+    --surface-input: #232832;
+    --surface-chat: #1b2027;
+    --line: #343b47;
+    --line-subtle: #2a303a;
+    --text-primary: #f3f4f6;
+    --text-secondary: #d1d5db;
+    --text-muted: #a1aab8;
+    --text-faint: #7f8998;
+    --brand-soft: #252b5c;
+    --brand-soft-strong: #293c68;
+    --error-soft: #3a2025;
+  }
+
+  html,
+  body {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+  }
+
+  /* Utilitaires Tailwind utilisés dans les écrans existants. Les sélecteurs
+     restent limités aux couleurs neutres afin de préserver les accents. */
+  [class~="bg-white"] { background-color: var(--surface) !important; }
+  [class~="bg-gray-50"] { background-color: var(--surface-muted) !important; }
+  [class~="bg-gray-100"] { background-color: var(--surface-subtle) !important; }
+  [class~="bg-gray-200"] { background-color: var(--surface-elevated) !important; }
+  [class~="bg-gray-300"] { background-color: #3a424f !important; }
+  [class~="bg-gray-50/60"] { background-color: color-mix(in srgb, var(--surface-muted) 60%, transparent) !important; }
+  [class~="bg-white/80"], [class~="bg-white/85"], [class~="bg-white/90"] { background-color: color-mix(in srgb, var(--surface) 85%, transparent) !important; }
+  [class~="bg-blue-50"], [class~="bg-blue-50/20"], [class~="bg-blue-50/50"], [class~="bg-blue-50/60"] { background-color: var(--brand-soft) !important; }
+  [class~="bg-blue-100"] { background-color: var(--brand-soft-strong) !important; }
+  [class~="bg-indigo-50"], [class~="bg-indigo-100"] { background-color: var(--brand-soft) !important; }
+  [class~="bg-red-50"] { background-color: var(--error-soft) !important; }
+  [class~="bg-amber-50"] { background-color: #3b2f16 !important; }
+  [class~="bg-emerald-100"] { background-color: #173c31 !important; }
+  [class~="bg-slate-100"] { background-color: #252b34 !important; }
+
+  [class~="bg-[#f9f9f9]"], [class~="bg-[#f2f3f4]"], [class~="bg-[#f4f5f7]"] {
+    background-color: var(--surface-muted) !important;
+  }
+  [class~="bg-[#f2f3f5]"], [class~="bg-[#f7f7f9]"] { background-color: var(--surface-input) !important; }
+  [class~="bg-[#efeae2]"] { background-color: var(--surface-chat) !important; }
+  [class~="bg-[#e5e7eb]"] { background-color: #303743 !important; }
+  [class~="bg-[#202124]"],
+  [class~="bg-[#f1f2f4]"] { background-color: var(--surface-subtle) !important; }
+  [class~="hover:bg-[#e6e7e9]"]:hover { background-color: var(--surface-elevated) !important; }
+
+  [class~="text-black"],
+  [class~="text-gray-900"],
+  [class~="text-gray-800"] { color: var(--text-primary) !important; }
+  [class~="text-gray-700"], [class~="text-slate-900"] { color: var(--text-secondary) !important; }
+  [class~="text-gray-600"], [class~="text-slate-700"] { color: #b7c0cc !important; }
+  [class~="text-gray-500"], [class~="text-slate-500"] { color: var(--text-muted) !important; }
+  [class~="text-gray-400"], [class~="text-slate-400"] { color: var(--text-faint) !important; }
+  [class~="text-gray-300"] { color: #667180 !important; }
+  [class~="text-[#202124]"],
+  [class~="text-[#2e3338]"],
+  [class~="text-[#172033]"],
+  [class~="text-[#111214]"],
+  [class~="text-[#444]"] { color: var(--text-primary) !important; }
+
+  [class~="border-gray-50"], [class~="border-gray-100"] { border-color: var(--line-subtle) !important; }
+  [class~="border-gray-200"], [class~="border-gray-300"] { border-color: var(--line) !important; }
+  [class~="border-blue-100"], [class~="border-indigo-100"] { border-color: #34446c !important; }
+  [class~="border-white"] { border-color: var(--surface) !important; }
+  [class~="divide-gray-100"] > :not([hidden]) ~ :not([hidden]) { border-color: var(--line-subtle) !important; }
+
+  /* Statuts : aucune zone blanche ne doit rester dans la liste en mode sombre. */
+  .status-list-view { background-color: var(--surface-chat) !important; }
+  .status-list-card { background-color: var(--surface) !important; color: var(--text-primary); }
+  .status-action-button { background-color: var(--surface-subtle) !important; }
+  .status-action-icon { color: var(--text-secondary) !important; }
+  .status-section-label { color: var(--text-muted) !important; }
+  .status-empty-icon { background-color: var(--surface-subtle) !important; }
+  .status-empty-icon-symbol { color: var(--text-faint) !important; }
+  .status-list-item { border-color: var(--line-subtle) !important; }
+  .status-list-item:hover { background-color: var(--surface-subtle) !important; }
+  .status-list-name { color: var(--text-primary) !important; }
+  .status-list-meta { color: var(--text-muted) !important; }
+
+  /* Éditeur de statut : popup sombre, texte clair et accent violet. */
+  .status-formatting-panel [class~="text-gray-600"],
+  .status-formatting-panel [class~="text-gray-700"],
+  .status-formatting-panel [class~="text-gray-500"],
+  .status-formatting-panel .material-symbols-outlined {
+    color: #e9d5ff !important;
+  }
+  .status-formatting-panel [class~="bg-white/60"],
+  .status-formatting-panel [class~="bg-black/5"] {
+    background-color: #252936 !important;
+  }
+  .status-formatting-panel [class~="border-black/10"] {
+    border-color: #45405d !important;
+  }
+  .status-formatting-panel select,
+  .status-formatting-panel input {
+    background-color: #252936 !important;
+    color: #f8fafc !important;
+  }
+  .status-formatting-panel option {
+    background: #171a21 !important;
+    color: #f8fafc !important;
+  }
+  .status-formatting-panel [class~="hover:bg-blue-50"]:hover {
+    background-color: rgba(139, 92, 246, 0.24) !important;
+  }
+
+  .status-color-picker [class~="text-gray-900"],
+  .status-color-picker [class~="text-gray-800"] {
+    color: #f8fafc !important;
+  }
+  .status-color-picker [class~="text-gray-500"],
+  .status-color-picker [class~="text-gray-400"] {
+    color: #cbd5e1 !important;
+  }
+  .status-color-picker [class~="bg-gray-50"] {
+    background-color: #252936 !important;
+  }
+  .status-color-picker [class~="border-gray-200"] {
+    border-color: #45405d !important;
+  }
+  .status-color-picker [class~="hover:bg-gray-100"]:hover,
+  .status-color-picker [class~="hover:bg-gray-200"]:hover {
+    background-color: rgba(139, 92, 246, 0.24) !important;
+  }
+  .status-color-picker input {
+    color: #f8fafc !important;
+    caret-color: #c4b5fd;
+  }
+
+  [class~="hover:bg-gray-50"]:hover,
+  [class~="hover:bg-gray-50/50"]:hover,
+  [class~="hover:bg-gray-100"]:hover { background-color: var(--surface-subtle) !important; }
+  [class~="hover:bg-gray-200"]:hover { background-color: var(--surface-elevated) !important; }
+  [class~="active:bg-gray-200"]:active { background-color: var(--surface-elevated) !important; }
+  [class~="hover:text-gray-600"]:hover { color: var(--text-secondary) !important; }
+  [class~="hover:text-gray-700"]:hover,
+  [class~="hover:text-gray-800"]:hover { color: var(--text-primary) !important; }
+
+  input,
+  textarea,
+  select {
+    color: var(--text-primary);
+    caret-color: #a5b4fc;
+  }
+
+  input::placeholder,
+  textarea::placeholder { color: var(--text-faint) !important; }
+  option { color: var(--text-primary); background: var(--surface); }
+
+  /* Landing page : les couleurs de marque restent violettes, les surfaces et
+     textes de contenu deviennent sombres même lorsqu’ils viennent d’un style inline. */
+  .public-shell { background-color: #111318 !important; color: #f3f4f6 !important; }
+  .public-shell .public-hero { background-color: #3831a8 !important; }
+  .public-shell .public-section { background-color: var(--surface) !important; }
+  .public-shell .public-section-muted { background-color: #1d2129 !important; }
+  .public-shell .public-section h2,
+  .public-shell .public-section-muted h2 { color: var(--text-primary) !important; }
+  .public-shell .public-section p,
+  .public-shell .public-section-muted p { color: #c1c8d2 !important; }
+  .public-shell .public-section svg path[fill="#ffffff"],
+  .public-shell .public-section-muted svg path[fill="#f0f1f3"] { fill: var(--surface) !important; }
+  .public-shell .public-auth-card,
+  .public-shell .public-install-backdrop > div { background: var(--surface) !important; }
+  .public-shell .public-auth-card input { background: var(--surface-input) !important; color: var(--text-primary) !important; }
+  .public-shell .public-auth-mode-toggle { background: var(--surface-input) !important; }
+  .public-shell .public-auth-error { background: var(--error-soft) !important; color: #fca5a5 !important; }
+  .public-shell .public-auth-card h2,
+  .public-shell .public-install-backdrop p { color: var(--text-primary) !important; }
+  .public-shell .public-auth-card [style*="color: #111"],
+  .public-shell .public-auth-card [style*="color: #2c2e33"] { color: var(--text-primary) !important; }
+  .public-shell footer { background-color: #0b0d11 !important; }
+  .public-shell .public-welcome-panel { background-color: var(--surface-muted) !important; }
+
+  /* Fenêtres modales et notifications déclarées avec des couleurs inline. */
+  .public-auth-card,
+  [class~="incoming-call-popup"],
+  [class~="analysis-card"],
+  [class~="details-card"] { color: var(--text-primary); }
+}
+
+/* Polissage du mode sombre, isolé aux surfaces qui ont un rôle visuel explicite. */
+@media (prefers-color-scheme: dark) {
+  /* Présentation publique : conserver le relief du hero au lieu d’un aplat violet. */
+  .public-shell .public-hero {
+    background:
+      radial-gradient(circle at 12% 18%, rgba(153, 145, 255, 0.28), transparent 28%),
+      radial-gradient(circle at 88% 82%, rgba(69, 218, 190, 0.14), transparent 24%),
+      linear-gradient(145deg, #29236f 0%, #4036b8 48%, #251f67 100%) !important;
+    isolation: isolate;
+  }
+
+  .public-shell .public-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: linear-gradient(115deg, rgba(255, 255, 255, 0.07), transparent 38%, rgba(10, 8, 45, 0.15));
+  }
+
+  .public-shell .public-hero > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .public-shell .public-hero nav,
+  .public-shell .public-hero > div {
+    position: relative;
+    z-index: 2;
+  }
+
+  .public-shell .public-section,
+  .public-shell .public-section-muted {
+    position: relative;
+  }
+
+  .public-shell .public-welcome-panel {
+    background: linear-gradient(180deg, #1d2129 0%, #171a21 100%) !important;
+  }
+
+  /* Sélection de sidebar : accent discret, contraste lisible, avatar intact. */
+  .sidebar-rail,
+  .sidebar-panel,
+  .sidebar-content,
+  .sidebar-discussions,
+  .sidebar-mobile-nav {
+    background-color: var(--surface) !important;
+    border-color: var(--line) !important;
+  }
+
+  .sidebar-item-selected {
+    background: linear-gradient(100deg, rgba(92, 89, 190, 0.38), rgba(48, 52, 77, 0.78)) !important;
+    box-shadow: inset 3px 0 0 #9b95ff, 0 1px 2px rgba(0, 0, 0, 0.16);
+    color: #f5f6ff !important;
+  }
+
+  .sidebar-item-selected:hover,
+  .sidebar-item-selected:focus-visible {
+    background: linear-gradient(100deg, rgba(108, 102, 215, 0.45), rgba(54, 58, 86, 0.86)) !important;
+  }
+
+  .sidebar-item-bot-selected {
+    background:
+      radial-gradient(circle at 88% 50%, rgba(129, 140, 248, 0.3), transparent 42%),
+      linear-gradient(100deg, rgba(77, 70, 170, 0.6), rgba(40, 43, 72, 0.92)) !important;
+    box-shadow: inset 3px 0 0 #a78bfa, 0 0 0 1px rgba(129, 140, 248, 0.18), 0 5px 16px rgba(39, 32, 103, 0.28);
+  }
+
+  .sidebar-item-bot-selected:hover,
+  .sidebar-item-bot-selected:focus-visible {
+    background:
+      radial-gradient(circle at 88% 50%, rgba(165, 180, 252, 0.36), transparent 42%),
+      linear-gradient(100deg, rgba(91, 82, 198, 0.7), rgba(47, 50, 83, 0.96)) !important;
+  }
+
+  .sidebar-panel .sidebar-item:not(.sidebar-item-selected):hover,
+  .sidebar-section-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.055) !important;
+  }
+
+  .sidebar-item-selected span,
+  .sidebar-item-selected .sidebar-item-icon,
+  .sidebar-item-selected svg {
+    color: #f5f6ff !important;
+  }
+
+  .sidebar-rail-item-active {
+    background: linear-gradient(145deg, rgba(124, 104, 214, 0.42), rgba(67, 48, 137, 0.72)) !important;
+    color: #d8ccff !important;
+    box-shadow: 0 0 0 1px rgba(181, 164, 255, 0.34), 0 4px 12px rgba(64, 42, 132, 0.36);
+  }
+
+  .sidebar-rail-item-active svg {
+    color: #e2d8ff !important;
+    filter: drop-shadow(0 1px 3px rgba(175, 155, 255, 0.35));
+  }
+
+  .sidebar-rail-item:not(.sidebar-rail-item-active):hover {
+    background-color: rgba(143, 113, 238, 0.13) !important;
+    color: #c9baff !important;
+  }
+
+  .sidebar-mobile-nav-item-active {
+    color: #c4b5fd !important;
+  }
+
+  .sidebar-mobile-nav-item-active .sidebar-mobile-nav-icon {
+    background: linear-gradient(145deg, rgba(124, 104, 214, 0.45), rgba(67, 48, 137, 0.78)) !important;
+    box-shadow: 0 2px 8px rgba(64, 42, 132, 0.3);
+  }
+
+  .sidebar-mobile-nav-item-active svg {
+    color: #e2d8ff !important;
+  }
+
+  /* Messages IA : surface légèrement teintée, texte et composants Markdown lisibles. */
+  .ai-message-row {
+    background: linear-gradient(90deg, rgba(71, 68, 150, 0.18), rgba(29, 33, 41, 0.06)) !important;
+    border-top: 1px solid rgba(129, 126, 214, 0.08);
+  }
+
+  .ai-message-row:hover {
+    background: linear-gradient(90deg, rgba(84, 80, 177, 0.27), rgba(36, 40, 50, 0.12)) !important;
+  }
+
+  .ai-message-row .message-content,
+  .ai-message-row .bot-message-content,
+  .ai-message-row .bot-message-paragraph,
+  .ai-message-row .bot-message-list-item {
+    color: #e5e7eb !important;
+  }
+
+  .ai-message-row .bot-message-heading,
+  .ai-message-row strong {
+    color: #f8fafc !important;
+  }
+
+  .ai-message-row .bot-message-heading {
+    border-color: #3b4352 !important;
+  }
+
+  .ai-message-row blockquote {
+    border-color: #6874a0 !important;
+    color: #aeb8c8 !important;
+  }
+
+  .ai-message-row em {
+    color: #c3cad6 !important;
+  }
+
+  .ai-message-row .bot-inline-code {
+    background: #282d3a !important;
+    border-color: #434c5d !important;
+    color: #e5b8ff !important;
+  }
+
+  .ai-message-row .bot-code-block {
+    background: #151922 !important;
+    border-color: #3b4352 !important;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18);
+  }
+
+  .ai-message-row .bot-code-header {
+    background: #202633 !important;
+    border-color: #3b4352 !important;
+  }
+
+  .ai-message-row .bot-code-header button:hover {
+    color: #f3f4f6 !important;
+  }
+
+  .ai-message-row .markdown-content table {
+    background: #1a1f29 !important;
+    border-color: #3b4352 !important;
+  }
+
+  .ai-message-row .markdown-content th {
+    background: #242b38 !important;
+    border-color: #3b4352 !important;
+    color: #e5e7eb !important;
+  }
+
+  .ai-message-row .markdown-content td {
+    border-color: #303846 !important;
+    color: #cbd5e1 !important;
+  }
+
+  .ai-message-row .markdown-content tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.035) !important;
+  }
+
+  /* Les bots sans photo utilisent un cerveau et un pseudo blancs en mode sombre. */
+  .bot-avatar-fallback,
+  .bot-avatar-fallback svg,
+  .ai-message-row .bot-message-name {
+    color: #ffffff !important;
+  }
+
+  /* Surfaces Markdown globales et blocs de code des messages classiques. */
+  .markdown-content table {
+    background: var(--surface) !important;
+    border-color: var(--line) !important;
+  }
+
+  .markdown-content th {
+    background: var(--surface-subtle) !important;
+    border-color: var(--line) !important;
+  }
+
+  .markdown-content td {
+    border-color: var(--line-subtle) !important;
+  }
+
+  .markdown-content code {
+    background-color: var(--surface-subtle) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .message-code-block {
+    background: #151922 !important;
+    border-color: var(--line) !important;
+  }
+
+  .message-code-header {
+    background: #202633 !important;
+    border-color: var(--line) !important;
+  }
+
+  .message-code-header button:hover {
+    color: var(--text-primary) !important;
   }
 }

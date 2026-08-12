@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, collection, addDoc, serverTimestamp, updateDoc, arrayRemove } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { usePathname } from 'next/navigation';
 import Chat from '@/components/Chat';
 import HomeView from '@/components/HomeView';
 import CallHandler from '@/components/CallHandler';
@@ -17,9 +18,107 @@ import BotPage from '@/components/bots/BotPage';
 import ProfilePage from '@/components/profile/ProfilePage';
 import MyProfilePresentation from '@/components/profile/MyProfilePresentation';
 import { useState, useEffect, useRef } from 'react';
-import { Eye, EyeSlash, Lock, Envelope, Laptop, User, UserFocus, UsersThree, CaretLeft } from '@phosphor-icons/react';
+import { Eye, EyeSlash, Lock, Envelope, WindowsLogo, User, UserFocus, UsersThree, CaretLeft } from '@phosphor-icons/react';
 import type { BotSection } from '@/components/sidebar/BotView';
 import type { ProfileSection } from '@/components/sidebar/ProfileView';
+
+const TAB_PATHS: Record<string, string> = {
+  discussion: '/accueil',
+  commu: '/recherche',
+  actus: '/statuts',
+  appels: '/appels',
+  bots: '/bots',
+  profil: '/profil',
+};
+
+const BOT_SECTION_PATHS: Record<BotSection, string> = {
+  accueil: '/bots',
+  applications: '/bots/applications',
+  statistiques: '/bots/statistiques',
+};
+
+const PROFILE_SECTION_PATHS: Record<ProfileSection, string> = {
+  infos: '/profil/infos',
+  securite: '/profil/securite',
+  statut: '/profil/statut',
+  familial: '/profil/familial',
+  'donnees-confidentialite': '/profil/donnees-confidentialite',
+  'permissions-messagerie': '/profil/permissions-messagerie',
+  notifications: '/profil/notifications',
+  'voix-video': '/profil/voix-video',
+  apparence: '/profil/apparence',
+  accessibilite: '/profil/accessibilite',
+  systeme: '/profil/systeme',
+  'langue-heure': '/profil/langue-heure',
+  'confidentialite-activites': '/profil/confidentialite-activites',
+  'applications-connectees': '/profil/applications-connectees',
+  developpeur: '/profil/developpeur',
+  bio: '/profil/bio',
+  visibilite: '/profil/visibilite',
+  connexions: '/profil/connexions',
+  'conditions-utilisation': '/profil/conditions-utilisation',
+  confidentialite: '/profil/confidentialite',
+  cookies: '/profil/cookies',
+  administration: '/profil/administration',
+};
+
+type AppRouteState = {
+  tab: string;
+  chatId: string | null;
+  botSection: BotSection;
+  profileSection: ProfileSection;
+};
+
+function decodeRoutePart(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function getAppRouteState(pathname: string | null): AppRouteState {
+  const path = pathname || '/';
+  const parts = path.split('/').filter(Boolean);
+  const state: AppRouteState = {
+    tab: getTabFromPath(path),
+    chatId: null,
+    botSection: 'accueil',
+    profileSection: 'infos',
+  };
+
+  if (parts[0] === 'discussions' && parts[2]) {
+    state.chatId = decodeRoutePart(parts[2]);
+  }
+  if (parts[0] === 'bots' && parts[1] && Object.entries(BOT_SECTION_PATHS).some(([, sectionPath]) => sectionPath === `/${parts.slice(0, 2).join('/')}`)) {
+    state.botSection = parts[1] as BotSection;
+  }
+  if (parts[0] === 'profil' && parts[1] && Object.entries(PROFILE_SECTION_PATHS).some(([, sectionPath]) => sectionPath === `/${parts.slice(0, 2).join('/')}`)) {
+    state.profileSection = parts[1] as ProfileSection;
+  }
+
+  return state;
+}
+
+type PublicAuthMode = 'connexion' | 'inscription';
+
+function getPublicAuthMode(pathname: string | null, search = ''): PublicAuthMode | null {
+  if (pathname === '/connexion') return 'connexion';
+  const mode = new URLSearchParams(search).get('auth');
+  return mode === 'connexion' || mode === 'inscription' ? mode : null;
+}
+
+function getTabFromPath(pathname: string | null): string {
+  if (!pathname || pathname === '/') return 'discussion';
+  if (pathname.startsWith('/recherche')) return 'commu';
+  if (pathname.startsWith('/statuts')) return 'actus';
+  if (pathname.startsWith('/appels')) return 'appels';
+  if (pathname.startsWith('/bots')) return 'bots';
+  if (pathname.startsWith('/profil')) return 'profil';
+  if (pathname.startsWith('/discussions') || pathname.startsWith('/accueil')) return 'discussion';
+  return 'discussion';
+}
 
 // ─── Salutation animée ──────────────────────────────────────────────────────
 
@@ -48,36 +147,31 @@ function WelcomePanel() {
   const [showEmoji, setShowEmoji] = useState(false);
   const indexRef = useRef(0);
 
-  // ── PWA install ──────────────────────────────────────────────────────────
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [installed, setInstalled] = useState(false);
-  const [showInstallModal, setShowInstallModal] = useState(false);
+  // La version est demandée au serveur à chaque ouverture de la page et au retour
+  // sur l’onglet : aucune version ni URL GitHub n’est figée dans le frontend.
+  const [latestWindowsVersion, setLatestWindowsVersion] = useState<string | null>(null);
 
   useEffect(() => {
-    const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e); };
-    window.addEventListener('beforeinstallprompt', handler as EventListener);
-    window.addEventListener('appinstalled', () => { setInstalled(true); setInstallPrompt(null); });
-    return () => window.removeEventListener('beforeinstallprompt', handler as EventListener);
+    let active = true;
+
+    const checkLatestWindowsVersion = async () => {
+      try {
+        const response = await fetch('/api/download/windows?info=1', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json() as { version?: string };
+        if (active && data.version) setLatestWindowsVersion(data.version);
+      } catch {
+        // Le téléchargement reste disponible même si l’étiquette de version ne se charge pas.
+      }
+    };
+
+    void checkLatestWindowsVersion();
+    window.addEventListener('focus', checkLatestWindowsVersion);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', checkLatestWindowsVersion);
+    };
   }, []);
-
-  const handleInstall = async () => {
-    if (installed) return;
-    if (installPrompt) {
-      installPrompt.prompt();
-      const { outcome } = await installPrompt.userChoice;
-      if (outcome === 'accepted') setInstalled(true);
-      setInstallPrompt(null);
-    } else {
-      // Pas de prompt natif → modale d'instructions
-      setShowInstallModal(true);
-    }
-  };
-
-  // Détecter le navigateur pour les instructions
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-  const isIOS = /iphone|ipad|ipod/i.test(ua);
-  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
-  const isFirefox = /firefox/i.test(ua);
 
   // ── Typewriter ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -99,7 +193,7 @@ function WelcomePanel() {
 
   return (
     <>
-    <div className="hidden md:flex h-full flex-col bg-[#f9f9f9]">
+    <div className="public-welcome-panel hidden md:flex h-full flex-col bg-[#f9f9f9]">
       {/* Logo */}
       <div className="flex items-center justify-center gap-2.5 pt-8 pb-2 flex-shrink-0">
         <img src="/Logo.png" alt="Mookup" width={32} height={32} className="block flex-shrink-0" />
@@ -132,18 +226,21 @@ function WelcomePanel() {
             <span className="text-[13px] font-medium text-gray-700">Rechercher un contact</span>
           </div>
 
-          {/* Installer l'application */}
-          <div
-            className={`flex flex-col items-center gap-3 ${installed ? 'cursor-default' : 'cursor-pointer'} group`}
-            onClick={handleInstall}
+          {/* Installer l'application Windows */}
+          <a
+            href="/api/download/windows"
+            download
+            title={latestWindowsVersion ? `Télécharger Mookup ${latestWindowsVersion}` : 'Télécharger la dernière version Windows'}
+            className="flex flex-col items-center gap-3 cursor-pointer group"
           >
-            <div className={`w-16 h-11 bg-white rounded-full flex items-center justify-center transition-all shadow-sm ${!installed ? 'hover:bg-gray-50' : 'opacity-50'}`}>
-              <Laptop size={22} className="text-gray-800" />
+            <div className="w-16 h-11 bg-white rounded-full flex items-center justify-center hover:bg-gray-50 transition-all shadow-sm">
+              <WindowsLogo size={22} weight="regular" className="text-gray-800" />
             </div>
-            <span className="text-[13px] font-medium text-gray-700">
-              {installed ? 'Application installée' : 'Installer l\'application'}
+            <span className="text-[13px] font-medium text-gray-700 text-center">
+              Installer l&apos;application Windows
+              {latestWindowsVersion && <span className="block text-[10px] font-normal text-gray-400">{latestWindowsVersion}</span>}
             </span>
-          </div>
+          </a>
 
         </div>
       </div>
@@ -174,40 +271,14 @@ function WelcomePanel() {
       </div>
     </div>
 
-    {/* Modale instructions installation */}
-    {showInstallModal && (
-      <div
-        className="fixed inset-0 z-50 flex items-end justify-center md:items-center bg-black/30"
-        onClick={() => setShowInstallModal(false)}
-      >
-        <div
-          className="bg-white rounded-t-2xl md:rounded-2xl w-full max-w-sm px-6 pt-5 pb-8 shadow-xl"
-          onClick={e => e.stopPropagation()}
-        >
-          <div className="w-8 h-1 bg-gray-200 rounded-full mx-auto mb-5 md:hidden" />
-          <p className="text-[15px] font-semibold text-gray-900 mb-1">Installer l&apos;application</p>
-          <p className="text-[13px] text-gray-500 mb-5">
-            {isIOS && isSafari
-              ? 'Sur Safari : appuyez sur le bouton Partager puis "Sur l\'écran d\'accueil".'
-              : isFirefox
-              ? 'Sur Firefox : ouvrez le menu (⋮) puis "Installer".'
-              : 'Sur Chrome ou Edge : ouvrez le menu (⋮) puis "Ajouter à l\'écran d\'accueil" ou "Installer l\'application".'}
-          </p>
-          <button
-            onClick={() => setShowInstallModal(false)}
-            className="w-full py-2.5 rounded-xl bg-[#5046e5] text-white text-[13.5px] font-semibold hover:bg-[#4338ca] transition-colors"
-          >
-            Compris
-          </button>
-        </div>
-      </div>
-    )}
     </>
   );
 }
 
 export default function Home() {
+  const pathname = usePathname();
   const [user, loading] = useAuthState(auth);
+
   // Les actions de la Jump List Windows arrivent dans l’URL de l’application.
   // Le groupe est un panneau interne : on transmet donc une fois l’action à HomeView.
   useEffect(() => {
@@ -223,18 +294,69 @@ export default function Home() {
 
     return () => window.clearTimeout(timer);
   }, [user]);
+  const initialRoute = getAppRouteState(typeof window === 'undefined' ? pathname : window.location.pathname);
+  const initialPublicAuthMode = getPublicAuthMode(
+    typeof window === 'undefined' ? pathname : window.location.pathname,
+    typeof window === 'undefined' ? '' : window.location.search
+  );
   const publicConsoleMessageLoggedRef = useRef(false);
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [selectedChat, setSelectedChat] = useState<string | null>(initialRoute.chatId);
   const [selectedChatData, setSelectedChatData] = useState<{ name: string, avatar?: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('discussion');
-  const [botSection, setBotSection] = useState<BotSection>('accueil');
-  const [profileSection, setProfileSection] = useState<ProfileSection>('infos');
+  const [activeTab, setActiveTab] = useState<string>(initialRoute.tab);
+  const [botSection, setBotSection] = useState<BotSection>(initialRoute.botSection);
+  const [profileSection, setProfileSection] = useState<ProfileSection>(initialRoute.profileSection);
   // Sur mobile : contenu ouvert depuis BotView/ProfileView (null = rien d'ouvert)
   const [mobileContent, setMobileContent] = useState<'bots' | 'profil' | null>(null);
   const [showOwnProfile, setShowOwnProfile] = useState(false);
 
   useEffect(() => {
-    const handleViewMyProfile = () => setShowOwnProfile(true);
+    const routeState = getAppRouteState(pathname);
+    setActiveTab(routeState.tab);
+    setSelectedChat(routeState.chatId);
+    if (routeState.tab === 'bots') setBotSection(routeState.botSection);
+    if (routeState.tab === 'profil') setProfileSection(routeState.profileSection);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!user) return;
+    const currentPath = window.location.pathname;
+    const hasAuthQuery = new URLSearchParams(window.location.search).has('auth');
+    if (currentPath === '/' || currentPath === '/connexion' || hasAuthQuery || (currentPath === '/discussions' && !getAppRouteState(currentPath).chatId)) {
+      window.history.replaceState({ appTab: 'discussion' }, '', TAB_PATHS.discussion);
+    }
+  }, [user]);
+
+  const navigateToPath = (nextPath: string, state: Record<string, string> = {}) => {
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({ ...state, appPage: nextPath }, '', nextPath);
+    }
+  };
+
+  const navigateToTab = (tabId: string) => {
+    navigateToPath(TAB_PATHS[tabId] || TAB_PATHS.discussion, { appTab: tabId });
+  };
+
+  const navigateToBotSection = (section: BotSection) => {
+    setBotSection(section);
+    navigateToPath(BOT_SECTION_PATHS[section], { appTab: 'bots', botSection: section });
+  };
+
+  const navigateToProfileSection = (section: ProfileSection) => {
+    setProfileSection(section);
+    navigateToPath(PROFILE_SECTION_PATHS[section], { appTab: 'profil', profileSection: section });
+  };
+
+  const navigateToDiscussion = (chatId: string) => {
+    const type = chatId.startsWith('private_')
+      ? 'privee'
+      : chatId.startsWith('botchat_') || chatId.startsWith('ai-')
+        ? 'bot'
+        : 'groupe';
+    navigateToPath(`/discussions/${type}/${encodeURIComponent(chatId)}`, { appTab: 'discussion', chatId });
+  };
+
+  const handleViewMyProfile = () => setShowOwnProfile(true);
+  useEffect(() => {
     window.addEventListener('view_my_profile', handleViewMyProfile);
     return () => window.removeEventListener('view_my_profile', handleViewMyProfile);
   }, []);
@@ -270,6 +392,11 @@ export default function Home() {
           setSelectedChatData(null);
         } else if (mobileContent) {
           setMobileContent(null);
+        } else {
+          const routeState = getAppRouteState(window.location.pathname);
+          setActiveTab(routeState.tab);
+          if (routeState.tab === 'bots') setBotSection(routeState.botSection);
+          if (routeState.tab === 'profil') setProfileSection(routeState.profileSection);
         }
       }
       window._appBackHandled = false;
@@ -283,9 +410,37 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [nickname, setNickname] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(initialPublicAuthMode !== null);
+  const [isRegistering, setIsRegistering] = useState(initialPublicAuthMode === 'inscription');
+
+  const updatePublicAuthUrl = (mode: PublicAuthMode | null, replace = false) => {
+    const basePath = window.location.pathname === '/connexion' ? '/' : window.location.pathname;
+    const nextUrl = mode ? `${basePath}?auth=${mode}` : basePath;
+    const historyMethod = replace ? 'replaceState' : 'pushState';
+    window.history[historyMethod]({ auth: mode }, '', nextUrl);
+  };
+
+  const openAuthModal = (mode: PublicAuthMode) => {
+    setIsRegistering(mode === 'inscription');
+    setShowAuthModal(true);
+    updatePublicAuthUrl(mode);
+  };
+
+  const closeAuthModal = () => {
+    setShowAuthModal(false);
+    updatePublicAuthUrl(null, true);
+  };
+
+  useEffect(() => {
+    const handlePublicAuthHistory = () => {
+      const mode = getPublicAuthMode(window.location.pathname, window.location.search);
+      setIsRegistering(mode === 'inscription');
+      setShowAuthModal(mode !== null);
+    };
+    window.addEventListener('popstate', handlePublicAuthHistory);
+    return () => window.removeEventListener('popstate', handlePublicAuthHistory);
+  }, []);
 
   useEffect(() => {
     if (loading || publicConsoleMessageLoggedRef.current) return;
@@ -348,7 +503,9 @@ export default function Home() {
     const APP = 'Mookup';
 
     if (!user) {
-      document.title = APP;
+      document.title = showAuthModal
+        ? `${isRegistering ? 'Inscription' : 'Connexion'} | ${APP}`
+        : APP;
       return;
     }
 
@@ -382,14 +539,42 @@ export default function Home() {
       return;
     }
 
-    if (mobileContent === 'profil') {
-      const labels: Record<string, string> = {
+    if (activeTab === 'bots') {
+      const labels: Record<BotSection, string> = {
+        accueil: 'Bots',
+        applications: 'Applications',
+        statistiques: 'Statistiques',
+      };
+      document.title = `${labels[botSection]} | ${APP}`;
+      return;
+    }
+
+    if (activeTab === 'profil') {
+      const labels: Record<ProfileSection, string> = {
         infos: 'Infos du compte',
         securite: 'Sécurité',
-        statut: 'Statut du compte',
+        statut: 'Statut',
         familial: 'Centre familial',
+        'donnees-confidentialite': 'Données et confidentialité',
+        'permissions-messagerie': 'Permissions de messagerie',
+        notifications: 'Notifications',
+        'voix-video': 'Voix et Vidéo',
+        apparence: 'Apparence',
+        accessibilite: 'Accessibilité',
+        systeme: 'Système',
+        'langue-heure': 'Langue et heure',
+        'confidentialite-activites': 'Confidentialité des activités',
+        'applications-connectees': 'Applications connectées',
+        developpeur: 'Développeur',
+        bio: 'Bio et passions',
+        visibilite: 'Visibilité',
+        connexions: 'Connexions',
+        'conditions-utilisation': 'Conditions d’utilisation',
+        confidentialite: 'Confidentialité',
+        cookies: 'Cookies',
+        administration: 'Administration',
       };
-      document.title = `${labels[profileSection] ?? 'Profil'} | ${APP}`;
+      document.title = `${labels[profileSection]} | ${APP}`;
       return;
     }
 
@@ -397,13 +582,11 @@ export default function Home() {
     const tabLabels: Record<string, string> = {
       discussion: 'Accueil',
       commu: 'Recherche',
-      actus: 'Statuts',
+      actus: 'Statut',
       appels: 'Appels',
-      bots: 'Bots',
-      profil: 'Profil',
     };
     document.title = `${tabLabels[activeTab] ?? activeTab} | ${APP}`;
-  }, [user, selectedChat, selectedChatData, activeTab, mobileContent, botSection, profileSection]);
+  }, [user, selectedChat, selectedChatData, activeTab, mobileContent, botSection, profileSection, showAuthModal, isRegistering]);
 
 
   useEffect(() => {
@@ -462,15 +645,16 @@ export default function Home() {
 
   if (!user) {
     return (
-      <div style={{ fontFamily: 'var(--font-dm-sans), "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', backgroundColor: '#f2f3f4', color: '#2c2e33', margin: 0 }}>
+      <div className="public-shell" style={{ fontFamily: 'var(--font-dm-sans), "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', backgroundColor: '#f2f3f4', color: '#2c2e33', margin: 0 }}>
         {/* ===== MODAL AUTH ===== */}
         {showAuthModal && (
           <div
-            onClick={(e) => { if (e.target === e.currentTarget) setShowAuthModal(false); }}
+            className="public-auth-backdrop"
+            onClick={(e) => { if (e.target === e.currentTarget) closeAuthModal(); }}
             style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
           >
-            <div style={{ background: '#fff', borderRadius: 16, padding: '32px 28px', width: '100%', maxWidth: 400, boxShadow: '0 24px 60px rgba(0,0,0,0.25)', position: 'relative' }}>
-              <button onClick={() => setShowAuthModal(false)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#888', lineHeight: 1 }}>×</button>
+            <div className="public-auth-card" style={{ background: '#fff', borderRadius: 16, padding: '32px 28px', width: '100%', maxWidth: 400, boxShadow: '0 24px 60px rgba(0,0,0,0.25)', position: 'relative' }}>
+              <button onClick={closeAuthModal} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#888', lineHeight: 1 }}>×</button>
               <h2 style={{ margin: '0 0 6px', fontSize: '1.5em', fontWeight: 300, color: '#111', letterSpacing: '-0.01em', fontFamily: 'var(--font-dm-sans), "DM Sans", sans-serif' }}>
                 {isRegistering ? 'Créer un compte' : 'Se connecter'}
               </h2>
@@ -499,18 +683,18 @@ export default function Home() {
                     {showPassword ? <EyeSlash className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-                {authError && <p style={{ margin: 0, fontSize: '0.83em', color: '#e53e3e', background: '#fff5f5', padding: '10px 14px', borderRadius: 8, textAlign: 'center' }}>{authError}</p>}
+                {authError && <p className="public-auth-error" style={{ margin: 0, fontSize: '0.83em', color: '#e53e3e', background: '#fff5f5', padding: '10px 14px', borderRadius: 8, textAlign: 'center' }}>{authError}</p>}
                 <button type="submit"
                   style={{ background: '#5046e5', color: '#fff', border: 'none', borderRadius: 10, padding: '14px', fontWeight: 600, fontSize: '1em', cursor: 'pointer', marginTop: 4 }}>
                   {isRegistering ? 'Créer un compte' : 'Se connecter'}
                 </button>
               </form>
-              <div style={{ marginTop: 20, display: 'flex', background: '#f2f3f4', borderRadius: 10, padding: 4, gap: 4 }}>
-                <button type="button" onClick={() => setIsRegistering(false)}
+              <div className="public-auth-mode-toggle" style={{ marginTop: 20, display: 'flex', background: '#f2f3f4', borderRadius: 10, padding: 4, gap: 4 }}>
+                <button type="button" onClick={() => openAuthModal('connexion')}
                   style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', fontWeight: 500, fontSize: '0.9em', cursor: 'pointer', background: !isRegistering ? '#5046e5' : 'transparent', color: !isRegistering ? '#fff' : '#666', transition: 'all 0.15s' }}>
                   Connexion
                 </button>
-                <button type="button" onClick={() => setIsRegistering(true)}
+                <button type="button" onClick={() => openAuthModal('inscription')}
                   style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', fontWeight: 500, fontSize: '0.9em', cursor: 'pointer', background: isRegistering ? '#5046e5' : 'transparent', color: isRegistering ? '#fff' : '#666', transition: 'all 0.15s' }}>
                   Inscription
                 </button>
@@ -520,7 +704,7 @@ export default function Home() {
         )}
 
         {/* ===== HERO HEADER ===== */}
-        <div style={{ backgroundColor: '#5046e5', position: 'relative', overflow: 'hidden', minHeight: '100vh', boxSizing: 'border-box' }}>
+        <div className="public-hero" style={{ backgroundColor: '#5046e5', position: 'relative', overflow: 'hidden', minHeight: '100vh', boxSizing: 'border-box' }}>
           {/* Shapes décoratives */}
           {([
             { type: 'circle', style: { width: 22, height: 22, top: '12%', left: '7%' } },
@@ -540,12 +724,12 @@ export default function Home() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               {/* Connexion caché sur mobile, visible à partir de sm */}
-              <button type="button" onClick={() => { setIsRegistering(false); setShowAuthModal(true); }}
+              <button type="button" onClick={() => openAuthModal('connexion')}
                 className="hidden sm:block"
                 style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1.5px solid rgba(255,255,255,0.35)', borderRadius: 8, padding: '9px 18px', fontWeight: 500, fontSize: '0.9em', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 Connexion
               </button>
-              <button type="button" onClick={() => { setIsRegistering(true); setShowAuthModal(true); }}
+              <button type="button" onClick={() => openAuthModal('inscription')}
                 style={{ background: '#fff', color: '#5046e5', border: 'none', borderRadius: 8, padding: '9px 18px', fontWeight: 600, fontSize: '0.9em', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 S&apos;inscrire
               </button>
@@ -561,7 +745,7 @@ export default function Home() {
               Découvrez une nouvelle manière d&apos;interagir avec vos communautés : des threads nouvelle génération, pensés pour des échanges plus vivants.
             </p>
             <div style={{ margin: '34px 24px 0', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 14 }}>
-              <button type="button" onClick={() => { setIsRegistering(true); setShowAuthModal(true); }}
+              <button type="button" onClick={() => openAuthModal('inscription')}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: '#fff', color: '#5046e5', fontWeight: 600, fontSize: '1.05em', padding: '14px 26px', borderRadius: 8, border: 'none', cursor: 'pointer' }}>
                 Commencer gratuitement
               </button>
@@ -598,7 +782,7 @@ export default function Home() {
         {/* ===== FIN HERO ===== */}
 
         {/* ===== SECTION 1 – Post card ===== */}
-        <section style={{ backgroundColor: '#ffffff' }}>
+        <section className="public-section" style={{ backgroundColor: '#ffffff' }}>
           <div style={{ maxWidth: 1100, margin: '0 auto', padding: '140px 32px', display: 'flex', alignItems: 'center', gap: 110, flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 420px', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
               <img src="/post_card.svg" alt="Aperçu d'un fil de posts sur Mookup" style={{ width: '100%', maxWidth: 420, height: 'auto', display: 'block' }} />
@@ -615,7 +799,7 @@ export default function Home() {
         </section>
 
         {/* ===== SECTION 2 – Profile privacy ===== */}
-        <section style={{ backgroundColor: '#f0f1f3', position: 'relative' }}>
+        <section className="public-section-muted" style={{ backgroundColor: '#f0f1f3', position: 'relative' }}>
           <svg style={{ position: 'absolute', top: -69, left: 0, width: '100%', height: 70, display: 'block' }} viewBox="0 0 1200 70" preserveAspectRatio="none">
             <path d="M0 40 C 150 10, 300 60, 450 45 C 650 25, 750 5, 950 30 C 1050 42, 1150 50, 1200 35 L1200 70 L0 70 Z" fill="#f0f1f3" />
           </svg>
@@ -635,7 +819,7 @@ export default function Home() {
         </section>
 
         {/* ===== SECTION 3 – Personnalisation ===== */}
-        <section style={{ backgroundColor: '#ffffff', position: 'relative' }}>
+        <section className="public-section" style={{ backgroundColor: '#ffffff', position: 'relative' }}>
           <svg style={{ position: 'absolute', top: -69, left: 0, width: '100%', height: 70, display: 'block' }} viewBox="0 0 1200 70" preserveAspectRatio="none">
             <path d="M0 40 C 150 10, 300 60, 450 45 C 650 25, 750 5, 950 30 C 1050 42, 1150 50, 1200 35 L1200 70 L0 70 Z" fill="#ffffff" />
           </svg>
@@ -655,7 +839,7 @@ export default function Home() {
         </section>
 
         {/* ===== CTA FINAL ===== */}
-        <section style={{ backgroundColor: '#f0f1f3', position: 'relative', padding: '140px 32px', textAlign: 'center' }}>
+        <section className="public-section-muted" style={{ backgroundColor: '#f0f1f3', position: 'relative', padding: '140px 32px', textAlign: 'center' }}>
           <svg style={{ position: 'absolute', top: -69, left: 0, width: '100%', height: 70, display: 'block' }} viewBox="0 0 1200 70" preserveAspectRatio="none">
             <path d="M0 40 C 150 10, 300 60, 450 45 C 650 25, 750 5, 950 30 C 1050 42, 1150 50, 1200 35 L1200 70 L0 70 Z" fill="#f0f1f3" />
           </svg>
@@ -672,7 +856,7 @@ export default function Home() {
             <h2 style={{ fontFamily: 'var(--font-dm-sans), "DM Sans", sans-serif', fontWeight: 300, fontSize: 'clamp(2.2em, 4vw, 3.2em)', lineHeight: 1.2, margin: 0, color: '#111214', letterSpacing: '-0.02em' }}>
               Prêt à commencer ?
             </h2>
-            <button type="button" onClick={() => { setIsRegistering(true); setShowAuthModal(true); }}
+            <button type="button" onClick={() => openAuthModal('inscription')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: '#5046e5', color: '#fff', fontWeight: 600, fontSize: '1.05em', padding: '14px 28px', borderRadius: 8, border: 'none', cursor: 'pointer', marginTop: 36 }}>
               Créer un compte gratuitement
             </button>
@@ -693,19 +877,27 @@ export default function Home() {
   }
 
   return (
-    <div className="h-[100dvh] flex overflow-hidden bg-white">
+    <div className="app-shell h-[100dvh] flex overflow-hidden bg-white">
       <CallHandler user={user} />
       <div className={`${(selectedChat || mobileContent) ? 'hidden md:flex' : 'flex'} w-full md:w-[380px] md:min-w-[380px] border-r border-gray-200 flex-col`}>
         <HomeView 
           user={user}
+          activeTab={activeTab}
           onSelectGroup={(id, data) => {
             setSelectedChat(id);
             setSelectedChatData(data || null);
             setMobileContent(null);
+            if (id) {
+              setActiveTab('discussion');
+              navigateToDiscussion(id);
+            }
           }} 
           selectedGroupId={selectedChat}
           onTabChange={(tabId) => {
             setActiveTab(tabId);
+            if (tabId === 'bots') setBotSection('accueil');
+            if (tabId === 'profil') setProfileSection('infos');
+            navigateToTab(tabId);
             setShowOwnProfile(false);
             if (tabId !== 'discussion') {
               setSelectedChat(null);
@@ -714,8 +906,8 @@ export default function Home() {
             setMobileContent(null);
           }}
           botSection={botSection}
-          onBotSectionChange={setBotSection}
-          onProfileSectionChange={setProfileSection}
+          onBotSectionChange={navigateToBotSection}
+          onProfileSectionChange={navigateToProfileSection}
           onMobileOpenContent={(tab) => setMobileContent(tab)}
         />
       </div>
@@ -728,16 +920,18 @@ export default function Home() {
             groupName={
               selectedChatData?.name || (
                 selectedChat === 'snapchat' 
-                  ? 'Team Mookup' 
-                  : selectedChat?.startsWith('ai-') 
-                    ? 'BDD Bot' 
-                    : 'Groupe Général'
+                  ? 'Team Mookup'                  : selectedChat?.startsWith('ai-')
+                    ? 'BDD Bot'
+                    : selectedChat?.startsWith('botchat_')
+                      ? 'Bot'
+                      : 'Groupe Général'
               )
             }
             groupAvatar={selectedChatData?.avatar}
             onBack={() => {
               setSelectedChat(null);
               setSelectedChatData(null);
+              navigateToTab('discussion');
             }}
             onStartPrivateChat={handleStartPrivateChat}
             onOpenBotChat={(chatId, data) => {
@@ -745,7 +939,7 @@ export default function Home() {
               setSelectedChatData(data);
               setActiveTab('discussion');
               setMobileContent(null);
-              window.dispatchEvent(new CustomEvent('app_navigate', { detail: { tabId: 'discussion' } }));
+              navigateToDiscussion(chatId);
             }}
             onNavigate={(tabId) => {
               const evt = new CustomEvent('app_navigate', { detail: { tabId } });

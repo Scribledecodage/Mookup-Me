@@ -46,6 +46,24 @@ const loadGoogleFont = (family: string) => {
   document.head.appendChild(link);
 };
 
+interface StatusUser {
+  uid: string;
+  displayName?: string | null;
+  photoURL?: string | null;
+}
+
+type StatusItemType = 'text' | 'image' | 'video';
+
+interface PublishedStatusItem {
+  id: string;
+  type: StatusItemType;
+  content: string;
+  createdAt: Date;
+  caption?: string;
+  bgColor?: string;
+  textStyle?: StatusTextStyle;
+}
+
 const MESHES = [
   // ── ROSES / PÊCHES ──
   {
@@ -216,7 +234,7 @@ export default function StatusCreator({
   initialFile,
   onClose,
 }: {
-  user: any;
+  user: StatusUser;
   type: 'text' | 'media';
   initialFile?: File | null;
   onClose: () => void;
@@ -298,7 +316,7 @@ export default function StatusCreator({
     setIsUploading(true);
     try {
       let content = text;
-      let mediaType = 'text';
+      let mediaType: StatusItemType = 'text';
 
       if (type === 'media' && mediaFile) {
         const fileExt = mediaFile.name.split('.').pop()?.toLowerCase();
@@ -316,7 +334,7 @@ export default function StatusCreator({
         content = urlData.publicUrl;
       }
 
-      const statusItem: any = {
+      const statusItem: PublishedStatusItem = {
         id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
         type: mediaType,
         content,
@@ -434,7 +452,7 @@ export default function StatusCreator({
               style={{
                 background: showPicker ? (isLight ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.30)') : btnBg,
                 backdropFilter: 'blur(8px)',
-                border: `1px solid ${btnBorder}`,
+                border: '1px solid rgba(139,92,246,0.48)',
               }}
               title="Changer la couleur"
               aria-label="Changer la couleur du statut"
@@ -448,7 +466,7 @@ export default function StatusCreator({
               style={{
                 background: showFormatting ? (isLight ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.30)') : btnBg,
                 backdropFilter: 'blur(8px)',
-                border: `1px solid ${btnBorder}`,
+                border: '1px solid rgba(139,92,246,0.48)',
                 color: iconColor,
               }}
               title="Modifier le texte"
@@ -463,12 +481,13 @@ export default function StatusCreator({
 
       {type === 'text' && showFormatting && (
         <div
-          className="absolute left-3 right-3 top-[66px] z-40 flex max-h-[calc(100dvh-7rem)] flex-wrap items-center gap-2 overflow-y-auto rounded-xl p-2.5 shadow-lg sm:left-auto sm:right-6 sm:top-[76px] sm:max-h-[calc(100dvh-7rem)]"
+          className="status-formatting-panel absolute left-3 right-3 top-[66px] z-40 flex max-h-[calc(100dvh-7rem)] flex-wrap items-center gap-2 overflow-y-auto rounded-xl p-2.5 shadow-lg sm:left-auto sm:right-6 sm:top-[76px] sm:max-h-[calc(100dvh-7rem)]"
           style={{
-            background: 'rgba(255,255,255,0.88)',
+            background: 'rgba(17,19,24,0.96)',
+            color: '#f8fafc',
             backdropFilter: 'blur(18px)',
             WebkitBackdropFilter: 'blur(18px)',
-            border: `1px solid ${btnBorder}`,
+            border: '1px solid rgba(139,92,246,0.48)',
           }}
         >
           <span className="material-symbols-outlined shrink-0 text-[18px] text-gray-600" title="Police">text_fields</span>
@@ -508,8 +527,8 @@ export default function StatusCreator({
               onClick={() => setTextStyle(previous => ({ ...previous, [key]: !previous[key] }))}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-[14px] transition-colors"
               style={{
-                background: textStyle[key] ? 'rgba(59,130,246,0.18)' : 'rgba(0,0,0,0.06)',
-                color: '#172033',
+                background: textStyle[key] ? 'rgba(139,92,246,0.30)' : 'rgba(255,255,255,0.08)',
+                color: '#f8fafc',
                 fontWeight: key === 'bold' ? 700 : 500,
                 fontStyle: key === 'italic' ? 'italic' : 'normal',
                 textDecoration: key === 'underline' ? 'underline' : key === 'strike' ? 'line-through' : 'none',
@@ -541,9 +560,9 @@ export default function StatusCreator({
                   onClick={() => { setTextStyle(previous => ({ ...previous, fontFamily: font })); loadGoogleFont(font); }}
                   className="truncate rounded-md px-2 py-1.5 text-left text-[12px] transition-colors hover:bg-blue-50"
                   style={{
-                    background: textStyle.fontFamily === font ? 'rgba(59,130,246,0.16)' : 'rgba(0,0,0,0.04)',
+                    background: textStyle.fontFamily === font ? 'rgba(139,92,246,0.30)' : 'rgba(255,255,255,0.06)',
                     fontFamily: font,
-                    color: '#172033',
+                    color: '#f8fafc',
                   }}
                   title={font}
                 >
@@ -589,7 +608,7 @@ export default function StatusCreator({
                   type="button"
                   onClick={() => setTextStyle(previous => ({ ...previous, align }))}
                   className="w-8 text-[12px] font-semibold hover:bg-blue-50"
-                  style={{ background: textStyle.align === align ? 'rgba(59,130,246,0.18)' : 'transparent' }}
+                  style={{ background: textStyle.align === align ? 'rgba(139,92,246,0.30)' : 'transparent' }}
                   aria-label={`Alignement ${align}`}
                 >
                   <span className="material-symbols-outlined text-[17px]">
@@ -615,11 +634,17 @@ export default function StatusCreator({
         <>
           <div className="fixed inset-0 z-30" onClick={() => setShowPicker(false)} />
 
-          <div className="fixed inset-2 z-40 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-2xl backdrop-blur-xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[min(82dvh,760px)] sm:w-[min(92vw,760px)] sm:-translate-x-1/2 sm:-translate-y-1/2">
+          <div
+            className="status-color-picker fixed inset-2 z-40 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 shadow-2xl backdrop-blur-xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[min(82dvh,760px)] sm:w-[min(92vw,760px)] sm:-translate-x-1/2 sm:-translate-y-1/2"
+            style={{
+              background: 'rgba(17,19,24,0.98)',
+              color: '#f8fafc',
+            }}
+          >
             <div className="flex shrink-0 items-start justify-between border-b border-gray-200 px-5 py-4 sm:px-7 sm:py-5">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-gray-900">
-                  <Palette size={21} weight="duotone" className="text-blue-600" />
+                  <Palette size={21} weight="duotone" className="text-violet-300" />
                   <h2 className="text-[18px] font-semibold">Choisir le fond</h2>
                 </div>
                 <p className="mt-1 text-[12px] text-gray-500">Sélectionne une ambiance pour ton statut.</p>
@@ -677,7 +702,7 @@ export default function StatusCreator({
                           {g.label}
                         </span>
                         {isSelected && (
-                          <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-blue-600 shadow-md">
+                          <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white text-violet-600 shadow-md">
                             <Check size={14} weight="bold" />
                           </span>
                         )}

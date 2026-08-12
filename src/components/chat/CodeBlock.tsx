@@ -33,8 +33,8 @@ export default function CodeBlock({ children, className, ...props }: any) {
   const iconUrl = getIcon(language);
 
   return match ? (
-    <div className="my-2 rounded-xl border border-gray-200 bg-[#fcfcfc] overflow-hidden shadow-sm">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-white border-b border-gray-100">
+    <div className="message-code-block my-2 rounded-xl border border-gray-200 bg-[#fcfcfc] overflow-hidden shadow-sm">
+      <div className="message-code-header flex items-center justify-between px-3 py-1.5 bg-white border-b border-gray-100">
         <div className="flex items-center gap-2">
           {iconUrl && <img src={iconUrl} alt={language} className="w-3.5 h-3.5" />}
           <span className="text-[10px] font-medium text-gray-500 lowercase">{language || 'code'}</span>

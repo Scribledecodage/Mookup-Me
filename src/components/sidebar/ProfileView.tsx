@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import {
@@ -152,18 +152,11 @@ export default function ProfileView({
   hideActiveStyle = false,
 }: ProfileViewProps) {
   const [search, setSearch] = useState('');
-  // Compte ouvert par défaut, Profil public fermé
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['compte']));
-
-  // Sélectionner infos au premier montage — via useEffect pour éviter setState pendant le render
-  const didInit = useRef(false);
-  useEffect(() => {
-    if (!didInit.current) {
-      didInit.current = true;
-      onSelectSection?.('infos');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Ouvre directement la rubrique contenant la section ciblée par l’URL.
+  const [openSections, setOpenSections] = useState<Set<string>>(() => {
+    const activeGroup = SECTIONS.find(section => section.items.some(item => item.id === activeSection));
+    return new Set([activeGroup?.id || 'compte']);
+  });
 
   const handleClick = (id: ProfileSection) => {
     onSelectSection?.(id);
@@ -204,7 +197,7 @@ export default function ProfileView({
   };
 
   return (
-    <div className="flex flex-col bg-white w-full h-full">
+    <div className="sidebar-panel flex flex-col bg-white w-full h-full">
 
       {/* ── Avatar + nom ─────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-100 flex-shrink-0">
@@ -268,7 +261,7 @@ export default function ProfileView({
               <button
                 type="button"
                 onClick={() => toggleSection(section.id)}
-                className="w-full flex items-center gap-4 px-4 py-3 rounded-xl text-left transition-colors hover:bg-gray-100 active:bg-gray-200 cursor-pointer"
+                className="sidebar-section-toggle w-full flex items-center gap-4 px-4 py-3 rounded-xl text-left transition-colors hover:bg-gray-100 active:bg-gray-200 cursor-pointer"
               >
                 <div className="flex items-center justify-center w-6 text-gray-500 flex-shrink-0">
                   <SectionIcon size={22} />
@@ -304,9 +297,9 @@ export default function ProfileView({
                           key={item.id}
                           type="button"
                           onClick={() => handleClick(item.id)}
-                          className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl text-left transition-colors cursor-pointer ${
+                          className={`sidebar-item w-full flex items-center gap-4 px-4 py-3 rounded-xl text-left transition-colors cursor-pointer ${
                             isActive
-                              ? 'bg-gray-200 text-gray-900'
+                              ? 'sidebar-item-selected bg-gray-200 text-gray-900'
                               : 'text-gray-600 hover:bg-gray-100 active:bg-gray-200'
                           }`}
                         >

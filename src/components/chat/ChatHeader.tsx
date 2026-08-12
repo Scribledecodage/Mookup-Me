@@ -89,7 +89,7 @@ export default function ChatHeader({
             displayAvatar ? (
               <img src={displayAvatar} alt={displayName} className="w-full h-full object-cover" />
             ) : groupId?.startsWith('botchat_') ? (
-              <div className="flex h-full w-full items-center justify-center bg-gray-100">
+              <div className="bot-avatar-fallback flex h-full w-full items-center justify-center bg-gray-100">
                 <Brain size={22} weight="duotone" className="text-gray-500" aria-hidden="true" />
               </div>
             ) : (
