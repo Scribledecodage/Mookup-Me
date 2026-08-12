@@ -151,9 +151,17 @@ function WelcomePanel() {
   const [showEmoji, setShowEmoji] = useState(false);
   const indexRef = useRef(0);
 
-  // La version est demandée au serveur à chaque ouverture de la page et au retour
-  // sur l’onglet : aucune version ni URL GitHub n’est figée dans le frontend.
+  // L’effet Acrylic/Mica est réservé à l’application Windows Electron :
+  // le web garde son fond classique et reste performant sur mobile.
+  const [isElectronApp, setIsElectronApp] = useState(false);
   const [latestWindowsVersion, setLatestWindowsVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setIsElectronApp(window.electronAPI?.isElectron === true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -197,7 +205,7 @@ function WelcomePanel() {
 
   return (
     <>
-    <div className="public-welcome-panel hidden md:flex h-full flex-col bg-[#f9f9f9]">
+    <div className={`public-welcome-panel hidden md:flex h-full flex-col bg-[#f9f9f9] ${isElectronApp ? 'electron-acrylic-welcome' : ''}`}>
       {/* Logo */}
       <div className="flex items-center justify-center gap-2.5 pt-8 pb-2 flex-shrink-0">
         <img src="/Logo.png" alt="Mookup" width={32} height={32} className="block flex-shrink-0" />

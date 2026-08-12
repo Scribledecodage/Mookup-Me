@@ -36,6 +36,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Scrollbar fine et visible dans toutes les zones défilantes. */
+* { scrollbar-width: thin; }
+*::-webkit-scrollbar { width: 3px; height: 3px; }
+*::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 999px; }
+
 /* Police DM Sans sur les éléments UI (titres, noms, nav, headers) — pas sur les messages */
 h1, h2, h3, h4, h5, h6,
 header, nav,
@@ -874,3 +879,48 @@ header, nav,
 :root[data-theme="light"] input,
 :root[data-theme="light"] textarea,
 :root[data-theme="light"] select { background-color: #f2f3f5; color: #171717; }
+
+/* Faux matériau Acrylic/Mica pour la zone vide de l'application Electron.
+   Le rendu reste limité à ce panneau : pas de flou sur la longue liste des discussions. */
+.electron-acrylic-welcome {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(80, 70, 229, 0.12), transparent 30%),
+    radial-gradient(circle at 84% 74%, rgba(56, 189, 248, 0.1), transparent 28%),
+    rgba(249, 250, 251, 0.78) !important;
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+}
+
+.electron-acrylic-welcome::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 76% 18%, rgba(80, 70, 229, 0.12), transparent 15%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.38), transparent 42%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .electron-acrylic-welcome {
+    background:
+      radial-gradient(circle at 18% 20%, rgba(129, 140, 248, 0.22), transparent 30%),
+      radial-gradient(circle at 84% 74%, rgba(45, 212, 191, 0.1), transparent 28%),
+      rgba(29, 33, 41, 0.78) !important;
+  }
+
+  .electron-acrylic-welcome::before {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 42%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .electron-acrylic-welcome {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--surface-muted) !important;
+  }
