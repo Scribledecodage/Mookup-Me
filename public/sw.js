@@ -1,6 +1,6 @@
-const CACHE_NAME = 'mookup-v1';
+const CACHE_NAME = 'mookup-v2';
 
-// Fichiers à mettre en cache immédiatement (Optionnel pour l'installation mais bien pour le offline)
+// Fichiers à mettre en cache immédiatement pour permettre un premier fallback hors ligne.
 const ASSETS_TO_CACHE = [
   '/',
   '/Logo.png',
@@ -10,26 +10,18 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     Promise.all([
-      // Nettoyage des anciens caches
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== CACHE_NAME) {
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      }),
-      // Prendre le contrôle immédiatement
+      caches.keys().then((cacheNames) => Promise.all(
+        cacheNames.map((cacheName) => (
+          cacheName !== CACHE_NAME ? caches.delete(cacheName) : undefined
+        ))
+      )),
       self.clients.claim()
     ])
   );
@@ -41,25 +33,32 @@ self.addEventListener('message', (event) => {
   }
 });
 
-self.addEventListener('fetch', (event) => {
-  const url = event.request.url;
+function offlineResponse() {
+  return new Response('Mookup est momentanément hors ligne.', {
+    status: 503,
+    statusText: 'Service Unavailable',
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+  });
+}
 
-  // Ne jamais intercepter les requêtes Next.js/HMR/webpack
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  const url = request.url;
+
+  // Le Service Worker ne doit jamais intercepter les écritures ou les flux temps réel.
+  if (request.method !== 'GET') return;
+
+  // Ne jamais intercepter les requêtes Next.js/HMR/webpack.
   if (
     url.includes('/_next/') ||
     url.includes('webpack') ||
     url.includes('hot-update')
-  ) {
-    return;
-  }
+  ) return;
 
-  // Ne jamais intercepter version.json
-  if (url.includes('version.json')) {
-    return;
-  }
+  // Ne jamais intercepter le manifeste de version : il doit toujours être relu.
+  if (url.includes('version.json')) return;
 
-  // Ne jamais intercepter Firebase, Firestore, Google APIs, Supabase
-  // Ces services ont besoin de connexions directes (streaming long-poll, WebSocket, etc.)
+  // Ne jamais intercepter Firebase, Firestore, Google APIs ou Supabase.
   if (
     url.includes('firestore.googleapis.com') ||
     url.includes('firebase.googleapis.com') ||
@@ -72,11 +71,9 @@ self.addEventListener('fetch', (event) => {
     url.includes('supabase.io') ||
     url.includes('identitytoolkit') ||
     url.includes('fcm.googleapis.com')
-  ) {
-    return;
-  }
+  ) return;
 
-  // En développement local, on n'intercepte rien
+  // En développement local, on n'intercepte rien.
   const isLocal =
     url.includes('localhost') ||
     url.includes('127.0.0.1') ||
@@ -84,13 +81,20 @@ self.addEventListener('fetch', (event) => {
     url.includes('10.') ||
     url.includes('172.');
 
-  if (isLocal) {
-    return;
-  }
+  if (isLocal) return;
+
+  const isNavigation = request.mode === 'navigate'
+    || request.headers.get('accept')?.includes('text/html');
 
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+    caches.match(request).then((cachedResponse) => {
+      if (cachedResponse) return cachedResponse;
+
+      return fetch(request).catch(() => (
+        isNavigation
+          ? caches.match('/').then((fallback) => fallback || offlineResponse())
+          : offlineResponse()
+      ));
     })
   );
 });
@@ -99,10 +103,8 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   if (event.action === 'reply' && event.reply) {
-    // Si c'est une réponse directe depuis la notification
     const replyText = event.reply;
-    
-    // On envoie le message au client (l'application)
+
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
         if (clientList.length > 0) {
@@ -116,12 +118,9 @@ self.addEventListener('notificationclick', (event) => {
       })
     );
   } else {
-    // Clic normal sur la notification
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-        if (clientList.length > 0) {
-          return clientList[0].focus();
-        }
+        if (clientList.length > 0) return clientList[0].focus();
         return self.clients.openWindow('/');
       })
     );

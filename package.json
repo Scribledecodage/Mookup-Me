@@ -1,6 +1,6 @@
 {
   "name": "mookup",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Mookup desktop application",
   "author": "Scribledecodage",
   "private": true,
@@ -99,11 +99,13 @@
     "nodeGypRebuild": false,
     "directories": {
       "app": ".electron-app",
+      "buildResources": "public",
       "output": "dist"
     },
     "files": [
       "**/*"
     ],
+    "icon": "Logo.png",
     "win": {
       "target": [
         {
