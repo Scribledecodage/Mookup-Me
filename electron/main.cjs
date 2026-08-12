@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, Menu, session, shell, ipcMain, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, dialog, Menu, session, shell, ipcMain, nativeImage, screen, desktopCapturer } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -797,23 +797,79 @@ function configureApplicationMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+const MEDIA_PERMISSION_ORIGINS = new Set([
+  'https://sfu.mirotalk.com',
+  'https://mirotalk.com',
+]);
+
+function isTrustedMediaOrigin(targetUrl) {
+  if (isAllowedUrl(targetUrl)) return true;
+
+  try {
+    return MEDIA_PERMISSION_ORIGINS.has(new URL(targetUrl).origin);
+  } catch {
+    return false;
+  }
+}
+
 function configureSessionPermissions() {
   const allowedPermissions = new Set([
     'media',
+    'speaker-selection',
+    'display-capture',
     'notifications',
     'clipboard-read',
     'clipboard-sanitized-write',
   ]);
 
-  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    const requestingUrl = webContents.getURL();
-    callback(isAllowedUrl(requestingUrl) && allowedPermissions.has(permission));
+  const canGrantPermission = (requestingUrl, permission) => {
+    if (!allowedPermissions.has(permission)) return false;
+
+    // Les appels sont rendus dans un iframe MiroTalk. Chromium demande donc
+    // l’autorisation au domaine MiroTalk, pas au domaine de Mookup.
+    // Le filtrage par origine évite d’accorder le micro/la caméra à un iframe
+    // arbitraire tout en laissant fonctionner les appels dans Electron.
+    if (permission === 'media' || permission === 'speaker-selection' || permission === 'display-capture') {
+      return isTrustedMediaOrigin(requestingUrl);
+    }
+
+    return isAllowedUrl(requestingUrl);
+  };
+
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details = {}) => {
+    const requestingUrl = details.requestingUrl || webContents.getURL();
+    callback(canGrantPermission(requestingUrl, permission));
   });
 
   session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
     const origin = requestingOrigin || webContents?.getURL() || '';
-    return isAllowedUrl(origin) && allowedPermissions.has(permission);
+    return canGrantPermission(origin, permission);
   });
+
+  // Electron ne fournit pas automatiquement une source à getDisplayMedia().
+  // Sans ce handler, MiroTalk renvoie NotSupportedError pour `screenType`.
+  if (typeof session.defaultSession.setDisplayMediaRequestHandler === 'function') {
+    session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+      const requestingUrl = request?.securityOrigin || request?.frame?.url || '';
+      if (!isTrustedMediaOrigin(requestingUrl)) {
+        callback();
+        return;
+      }
+
+      try {
+        const sources = await desktopCapturer.getSources({
+          types: ['screen', 'window'],
+          thumbnailSize: { width: 1, height: 1 },
+        });
+        const source = sources.find(item => item.id.startsWith('screen:')) || sources[0];
+        if (source) callback({ video: source });
+        else callback();
+      } catch (error) {
+        console.warn('[Media] Partage d’écran indisponible:', error.message);
+        callback();
+      }
+    });
+  }
 }
 
 function createMainWindow() {

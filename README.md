@@ -22,7 +22,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Windows desktop app (Electron)
 
-The Electron shell opens the deployed Mookup site and keeps desktop integration isolated from the web page. Game detection, overlays, and screen sharing are intentionally not included yet.
+The Electron shell opens the deployed Mookup site and keeps desktop integration isolated from the web page. Game detection and overlays are intentionally not included yet; microphone, camera, audio, and screen sharing are supported in calls.
 
 ```bash
 # Démarre automatiquement Next.js puis Electron en local

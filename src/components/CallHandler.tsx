@@ -288,7 +288,9 @@ export default function CallHandler({ user }: CallHandlerProps) {
           <iframe
             src={mirotalkUrl}
             title="Appel vidéo MiroTalk SFU"
-            allow="camera; microphone; speaker-selection; display-capture; fullscreen; clipboard-read; clipboard-write; web-share; autoplay; picture-in-picture"
+            // Autoriser les périphériques dans le frame cross-origin, notamment dans Electron.
+            // Le gestionnaire de permissions Electron limite ensuite les origines réellement approuvées.
+            allow="camera *; microphone *; speaker-selection *; display-capture *; fullscreen *; clipboard-read *; clipboard-write *; web-share *; autoplay *; picture-in-picture *"
             allowFullScreen
             onLoad={handleMiroTalkLoad}
             className="h-full w-full border-0"
