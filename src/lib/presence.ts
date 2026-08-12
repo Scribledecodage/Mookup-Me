@@ -155,7 +155,9 @@ function createPresenceStore(uid: string, displayName?: string | null): Presence
     const installedApp = isElectronApp || isNativeApp;
     const clientType: PresenceEntry['clientType'] = isElectronApp ? 'electron' : isNativeApp ? 'mobile-app' : 'web';
     const activity = installedApp && activityPrivacy.showActivity
-      ? systemActivity || getMookupActivity()
+      ? systemActivity?.appId === 'mookup'
+        ? getMookupActivity()
+        : systemActivity
       : null;
     const lastSeen = Date.now();
     const localEntry: PresenceEntry = {

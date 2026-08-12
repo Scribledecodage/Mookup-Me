@@ -224,12 +224,22 @@ function isMookupWindow(windowInfo) {
     || (ownerName === 'electron' && title.includes('mookup'));
 }
 
+function getMookupSystemActivity() {
+  return {
+    appId: 'mookup',
+    appName: 'Mookup',
+    details: 'Utilise Mookup',
+    logoUrl: null,
+  };
+}
+
 async function getSystemActivity() {
   try {
     getWindowsModulePromise ||= import('get-windows');
     const { activeWindow } = await getWindowsModulePromise;
     const windowInfo = await activeWindow();
-    if (!windowInfo || isMookupWindow(windowInfo)) return null;
+    if (!windowInfo) return null;
+    if (isMookupWindow(windowInfo)) return getMookupSystemActivity();
 
     const ownerName = String(windowInfo.owner?.name || 'Application').replace(/\\.exe$/i, '').trim();
     const title = String(windowInfo.title || '').trim();
@@ -241,8 +251,8 @@ async function getSystemActivity() {
       logoUrl: getExecutableIconDataUrl(windowInfo.owner?.path),
     };
   } catch (error) {
-    // Certaines plateformes demandent une permission d’accessibilité : garder
-    // l’activité Mookup comme repli si la fenêtre active est inaccessible.
+    // Certaines plateformes demandent une permission d’accessibilité : ne pas
+    // publier une fausse activité Mookup si la fenêtre active est inaccessible.
     if (!getSystemActivity.permissionWarningShown) {
       getSystemActivity.permissionWarningShown = true;
       console.warn('[System activity] Fenêtre active indisponible:', error.message);
