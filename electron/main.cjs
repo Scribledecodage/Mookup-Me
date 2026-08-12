@@ -60,7 +60,9 @@ let updateInstallTimer = null;
 let isInstallingUpdate = false;
 let isQuitting = false;
 const UPDATE_STATE_FILE = 'pending-update.json';
+const RECENT_CONTACTS_FILE = 'recent-contacts.json';
 const updateDebugHistory = [];
+let recentContacts = [];
 const MAX_UPDATE_DEBUG_HISTORY = 200;
 
 ipcMain.handle('electron-update-debug-history', () => updateDebugHistory);
@@ -96,6 +98,28 @@ function writeUpdateLog(event, details = {}) {
 
 function getUpdateStatePath() {
   return path.join(app.getPath('userData'), UPDATE_STATE_FILE);
+}
+
+function getRecentContactsPath() {
+  return path.join(app.getPath('userData'), RECENT_CONTACTS_FILE);
+}
+
+function loadRecentContacts() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(getRecentContactsPath(), 'utf8'));
+    return Array.isArray(parsed) ? parsed.slice(0, 2) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentContacts(contacts) {
+  try {
+    fs.mkdirSync(app.getPath('userData'), { recursive: true });
+    fs.writeFileSync(getRecentContactsPath(), JSON.stringify(contacts, null, 2), 'utf8');
+  } catch (error) {
+    console.warn('[Jump List] Impossible de mémoriser les conversations récentes:', error.message);
+  }
 }
 
 function savePendingUpdate(info) {
@@ -377,7 +401,23 @@ async function configureWindowsJumpList(recentContacts = []) {
 }
 
 ipcMain.on('electron-recent-contacts', (_event, contacts) => {
-  void configureWindowsJumpList(contacts);
+  if (!Array.isArray(contacts)) return;
+
+  recentContacts = contacts
+    .filter(contact => contact && typeof contact.chatId === 'string' && contact.chatId.trim())
+    .map(contact => ({
+      chatId: contact.chatId,
+      uid: typeof contact.uid === 'string' ? contact.uid : '',
+      displayName: typeof contact.displayName === 'string' && contact.displayName.trim()
+        ? contact.displayName.trim()
+        : contact.isBot ? 'Bot' : 'ce contact',
+      photoURL: typeof contact.photoURL === 'string' ? contact.photoURL : null,
+      isBot: Boolean(contact.isBot),
+    }))
+    .slice(0, 2);
+
+  saveRecentContacts(recentContacts);
+  void configureWindowsJumpList(recentContacts);
 });
 
 function configureApplicationMenu() {
@@ -575,7 +615,8 @@ if (!gotSingleInstanceLock) {
       packaged: app.isPackaged,
       platform: process.platform,
     });
-    configureWindowsJumpList();
+    recentContacts = loadRecentContacts();
+    void configureWindowsJumpList(recentContacts);
     configureApplicationMenu();
     configureSessionPermissions();
     createMainWindow();

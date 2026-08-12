@@ -55,7 +55,9 @@ export default function HomeView({ user, activeTab: controlledActiveTab, onSelec
   const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
   const [lastMessageTimes, setLastMessageTimes] = useState<{ [key: string]: string }>({});
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [usersLoaded, setUsersLoaded] = useState(false);
   const [privateChats, setPrivateChats] = useState<any[]>([]);
+  const [privateChatsLoaded, setPrivateChatsLoaded] = useState(false);
   const [customGroups, setCustomGroups] = useState<any[]>([]);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
@@ -122,8 +124,10 @@ export default function HomeView({ user, activeTab: controlledActiveTab, onSelec
             });
       
       setAllUsers(usersList);
+      setUsersLoaded(true);
     }, (error) => {
       console.error("Erreur lors de la récupération des utilisateurs:", error);
+      setUsersLoaded(true);
     });
     
     return () => unsubscribe();
@@ -151,8 +155,10 @@ export default function HomeView({ user, activeTab: controlledActiveTab, onSelec
       });
       
       setPrivateChats(activeChats);
+      setPrivateChatsLoaded(true);
     }, (error) => {
       console.error("Erreur lors de la récupération des conversations privées:", error);
+      setPrivateChatsLoaded(true);
     });
 
     return () => unsubscribe();
@@ -188,6 +194,8 @@ export default function HomeView({ user, activeTab: controlledActiveTab, onSelec
 
   // Transmettre les deux dernières discussions à la Jump List Electron Windows.
   useEffect(() => {
+    if (!user || !usersLoaded || !privateChatsLoaded) return;
+
     const recentContacts = privateChats.slice(0, 2).map(chat => {
       const isBot = Boolean(chat.isBotChat || chat.botId);
       const otherUserId = isBot
@@ -204,7 +212,7 @@ export default function HomeView({ user, activeTab: controlledActiveTab, onSelec
     });
 
     window.electronAPI?.setRecentContacts?.(recentContacts);
-  }, [privateChats, allUsers, user?.uid]);
+  }, [privateChats, allUsers, usersLoaded, privateChatsLoaded, user?.uid]);
 
   // Utiliser une ref pour selectedGroupId pour éviter de re-souscrire
   const selectedGroupIdRef = useRef(selectedGroupId);
