@@ -79,6 +79,31 @@ const MAX_UPDATE_DEBUG_HISTORY = 200;
 
 ipcMain.handle('electron-update-debug-history', () => updateDebugHistory);
 
+ipcMain.handle('electron-window-is-maximized', (event) => {
+  return BrowserWindow.fromWebContents(event.sender)?.isMaximized() === true;
+});
+
+ipcMain.on('electron-window-minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
+});
+
+ipcMain.on('electron-window-toggle-maximize', (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) return;
+  if (window.isMaximized()) window.unmaximize();
+  else window.maximize();
+});
+
+ipcMain.on('electron-window-close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close();
+});
+
+ipcMain.on('electron-about-request', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('electron-about-requested');
+  }
+});
+
 function getMookupAppVersion() {
   try {
     const packagePath = path.join(app.getAppPath(), 'package.json');
@@ -917,15 +942,15 @@ function createMainWindow() {
     minWidth: 960,
     minHeight: 640,
     show: false,
-    frame: true,
+    // La barre native est remplacée par la barre Mookup rendue dans React.
+    frame: false,
     resizable: true,
     thickFrame: true,
-    titleBarStyle: 'default',
     title: 'Mookup',
     icon: iconPath,
     backgroundColor: '#111318',
-    // Afficher la vraie barre de menus native Windows, horizontale.
-    autoHideMenuBar: false,
+    // La barre de menus native ne doit pas réapparaître à côté de notre barre.
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -967,6 +992,14 @@ function createMainWindow() {
       void shell.openExternal(url);
     }
   });
+
+  const sendWindowState = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('electron-window-state-changed', mainWindow.isMaximized());
+  };
+
+  mainWindow.on('maximize', sendWindowState);
+  mainWindow.on('unmaximize', sendWindowState);
 
   mainWindow.on('closed', () => {
     mainWindow = null;

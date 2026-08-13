@@ -3,6 +3,7 @@
 import { auth, db } from '@/lib/firebase';
 import { usePresence } from '@/lib/presence';
 import DesktopActivityConsent from '@/components/DesktopActivityConsent';
+import ElectronWindowShell from '@/components/ElectronTitleBar';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
@@ -841,7 +842,8 @@ export default function Home() {
 
   if (!user) {
     return (
-      <div className="public-shell" style={{ fontFamily: 'var(--font-dm-sans), "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', backgroundColor: '#f2f3f4', color: '#2c2e33', margin: 0 }}>
+      <ElectronWindowShell>
+        <div className="public-shell" style={{ fontFamily: 'var(--font-dm-sans), "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif', backgroundColor: '#f2f3f4', color: '#2c2e33', margin: 0 }}>
         {/* ===== MODAL AUTH ===== */}
         {showAuthModal && (
           <div
@@ -1068,12 +1070,14 @@ export default function Home() {
             <span>© {new Date().getFullYear()} Mookup. Tous droits réservés.</span>
           </div>
         </footer>
-      </div>
+        </div>
+      </ElectronWindowShell>
     );
   }
 
   return (
-    <div className="app-shell h-[100dvh] flex overflow-hidden bg-white">
+    <ElectronWindowShell>
+      <div className="app-shell h-[100dvh] flex overflow-hidden bg-white">
       {showAboutModal && <AboutMookupModal info={aboutInfo} onClose={() => setShowAboutModal(false)} />}
       <CallHandler user={user} />
       <DesktopActivityConsent user={user} />
@@ -1196,6 +1200,7 @@ export default function Home() {
           <WelcomePanel />
         )}
       </div>
-    </div>
+      </div>
+    </ElectronWindowShell>
   );
 }

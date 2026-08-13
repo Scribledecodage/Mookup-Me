@@ -1016,3 +1016,252 @@ header, nav,
     animation: none;
   }
 }
+
+/* Barre de titre native remplacée par la barre Mookup dans Electron. */
+.electron-window-shell {
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.electron-window-content {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.electron-window-content > .app-shell {
+  height: 100% !important;
+}
+
+.electron-window-content > .public-shell {
+  height: 100%;
+  min-height: 0 !important;
+  overflow: auto;
+}
+
+.electron-window-content .public-hero {
+  min-height: calc(100dvh - 38px) !important;
+}
+
+.electron-titlebar {
+  position: relative;
+  z-index: 1000;
+  display: flex;
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f7f7f8;
+  color: #60636c;
+  font-family: var(--font-dm-sans), "DM Sans", sans-serif;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.electron-titlebar-leading {
+  display: flex;
+  min-width: 0;
+  height: 38px;
+  align-items: center;
+  gap: 13px;
+}
+
+.electron-titlebar-side {
+  position: absolute;
+  top: 0;
+  display: flex;
+  height: 38px;
+  align-items: center;
+  gap: 2px;
+}
+
+.electron-titlebar-leading .electron-titlebar-side {
+  position: static;
+}
+
+.electron-titlebar-left { left: 14px; }
+.electron-titlebar-right { right: 12px; gap: 7px; }
+
+.electron-titlebar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #242630;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.electron-titlebar-brand img {
+  display: block;
+  border-radius: 5px;
+  object-fit: contain;
+}
+
+.electron-titlebar-toolbar {
+  display: flex;
+  min-width: 0;
+  height: 38px;
+  align-items: center;
+  gap: 2px;
+}
+
+.electron-titlebar-toolbar-button {
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #626a78;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.electron-titlebar-toolbar-button:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46a5;
+}
+
+.electron-titlebar-button {
+  display: inline-flex;
+  width: 34px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  -webkit-app-region: no-drag;
+}
+
+.electron-titlebar-button svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.electron-titlebar-material-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  font-family: 'Material Symbols Outlined';
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 16px;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+}
+
+/* Contrôles macOS : trois traffic lights sobres, sans icône ni symbole. */
+.electron-titlebar-window-control {
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 50%;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 1px 3px rgba(15, 23, 42, 0.14);
+}
+
+/* Les formes précédentes restent dans le DOM pour l’accessibilité, mais ne
+   dessinent rien : les boutons reprennent le langage visuel macOS. */
+.mookup-window-shape {
+  display: none;
+}
+
+/* À droite, les trois contrôles utilisent des couleurs pastel douces. */
+.electron-titlebar-right .electron-titlebar-window-control:nth-of-type(1) {
+  margin-left: 6px;
+  background: #f3c3bf;
+  border-color: #e4aaa5;
+}
+
+.electron-titlebar-right .electron-titlebar-window-control:nth-of-type(2) {
+  background: #f3dca8;
+  border-color: #dfc386;
+}
+
+.electron-titlebar-right .electron-titlebar-window-control:nth-of-type(3) {
+  background: #c6e3cc;
+  border-color: #a8cbaa;
+}
+
+.electron-titlebar-left .electron-titlebar-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+}
+
+.electron-titlebar-button:not(.electron-titlebar-window-control):hover {
+  background: #e7e8eb;
+  color: #252832;
+  box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.18);
+}
+
+.electron-titlebar-window-control,
+.electron-titlebar-window-control:hover,
+.electron-titlebar-window-control:active {
+  transform: none;
+}
+
+.electron-titlebar-button:not(.electron-titlebar-window-control):active {
+  transform: scale(0.94);
+  background: #dfe1e5;
+}
+
+.electron-titlebar-button-danger:hover {
+  background: #efb0aa;
+  color: #7f3f3b;
+  box-shadow: 0 2px 8px rgba(185, 71, 84, 0.18);
+}
+
+.electron-titlebar-separator {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .electron-titlebar {
+    border-color: #303640;
+    background: #1b1e25;
+    color: #aeb6c4;
+  }
+
+  .electron-titlebar-brand { color: #f3f4f6; }
+  .electron-titlebar-toolbar-button { color: #b7c0cc; }
+  .electron-titlebar-toolbar-button:hover { background: rgba(129, 140, 248, 0.18); color: #e0e7ff; }
+  .electron-titlebar-button:not(.electron-titlebar-window-control):hover { background: #2a303a; color: #f3f4f6; }
+  .electron-titlebar-button:not(.electron-titlebar-window-control):active { background: #343b47; }
+  .electron-titlebar-window-control { box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.22), 0 1px 3px rgba(0, 0, 0, 0.28); }
+  .electron-titlebar-right .electron-titlebar-window-control:nth-of-type(1) { background: #d99b98; border-color: #bd7c79; }
+  .electron-titlebar-right .electron-titlebar-window-control:nth-of-type(2) { background: #d7bb78; border-color: #b99854; }
+  .electron-titlebar-right .electron-titlebar-window-control:nth-of-type(3) { background: #9fc6a8; border-color: #78a682; }
+  .electron-titlebar-separator { background: #3b424d; }
+}
+
+@media (max-width: 560px) {
+  .electron-titlebar { padding: 0 6px; }
+  .electron-titlebar-leading { gap: 7px; }
+  .electron-titlebar-left { left: 6px; }
+  .electron-titlebar-right { right: 6px; gap: 5px; }
+  .electron-titlebar-brand { font-size: 13px; }
+  .electron-titlebar-toolbar { gap: 0; }
+  .electron-titlebar-toolbar-button { padding: 0 6px; font-size: 12px; }
+  .electron-titlebar-separator { display: none; }
+
+  .electron-titlebar-window-control { width: 12px; height: 12px; }
+  .electron-titlebar-right .electron-titlebar-window-control:nth-of-type(1) { margin-left: 3px; }
+}

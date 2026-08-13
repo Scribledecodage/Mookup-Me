@@ -43,6 +43,12 @@ interface Window {
     platform: string;
     electronVersion: string;
     getAppInfo?: () => Promise<ElectronAppInfo>;
+    minimizeWindow?: () => void;
+    toggleMaximizeWindow?: () => void;
+    closeWindow?: () => void;
+    isWindowMaximized?: () => Promise<boolean>;
+    requestAbout?: () => void;
+    onWindowStateChanged?: (listener: (maximized: boolean) => void) => () => void;
     getUpdateDebugHistory?: () => Promise<ElectronUpdateDebugEntry[]>;
     getSystemActivity?: () => Promise<ElectronSystemActivity | null>;
     approveSystemActivity?: (appId: string) => void;

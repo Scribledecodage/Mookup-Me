@@ -5,6 +5,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   electronVersion: process.versions.electron,
   getAppInfo: () => ipcRenderer.invoke('electron-app-info'),
+  minimizeWindow: () => ipcRenderer.send('electron-window-minimize'),
+  toggleMaximizeWindow: () => ipcRenderer.send('electron-window-toggle-maximize'),
+  closeWindow: () => ipcRenderer.send('electron-window-close'),
+  isWindowMaximized: () => ipcRenderer.invoke('electron-window-is-maximized'),
+  requestAbout: () => ipcRenderer.send('electron-about-request'),
+  onWindowStateChanged: (listener) => {
+    if (typeof listener !== 'function') return () => {};
+
+    const handler = (_event, maximized) => listener(maximized === true);
+    ipcRenderer.on('electron-window-state-changed', handler);
+    return () => ipcRenderer.removeListener('electron-window-state-changed', handler);
+  },
   getUpdateDebugHistory: () => ipcRenderer.invoke('electron-update-debug-history'),
   getSystemActivity: () => ipcRenderer.invoke('electron-system-activity-current'),
   approveSystemActivity: (appId) => {
