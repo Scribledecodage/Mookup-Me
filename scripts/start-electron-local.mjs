@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createConnection } from 'node:net';
 import path from 'node:path';
 
 const root = process.cwd();
@@ -19,6 +20,23 @@ async function isServerReady() {
   } catch {
     return false;
   }
+}
+
+function isPortOccupied() {
+  const target = new URL(localUrl);
+  const port = Number(target.port || (target.protocol === 'https:' ? 443 : 80));
+
+  return new Promise(resolve => {
+    const socket = createConnection({ host: target.hostname, port });
+    const finish = occupied => {
+      socket.destroy();
+      resolve(occupied);
+    };
+    socket.setTimeout(400);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+  });
 }
 
 async function waitForServer(timeoutMs = 30000) {
@@ -51,7 +69,7 @@ function shutdown(exitCode = 0) {
 }
 
 async function main() {
-  if (!(await isServerReady())) {
+  if (!(await isServerReady()) && !(await isPortOccupied())) {
     console.log(`🌐 Serveur local indisponible sur ${localUrl}, démarrage de Next.js...`);
     devServer = spawn(npmCommand, ['run', 'dev'], {
       cwd: root,
@@ -71,8 +89,11 @@ async function main() {
       shutdown(1);
       return;
     }
-  } else {
+  } else if (await isServerReady()) {
     console.log(`🌐 Serveur local déjà disponible sur ${localUrl}.`);
+  } else {
+    console.warn(`⚠️ Le port ${new URL(localUrl).port} est déjà occupé ; aucun second Next.js ne sera lancé.`);
+    console.warn('   Ferme l’ancien processus Next.js si l’interface ne répond pas, puis relance npm run electron.');
   }
 
   console.log('🖥️ Démarrage d’Electron...');

@@ -859,7 +859,18 @@ export default function Home() {
     }
   };
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <ElectronWindowShell>
+        <div className="flex h-full items-center justify-center bg-[#f7f7f8]" aria-label="Chargement de Mookup">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <img src="/Logo.png" alt="Mookup" width={56} height={56} className="object-contain" />
+            <p className="text-sm text-gray-500">Ouverture de Mookup…</p>
+          </div>
+        </div>
+      </ElectronWindowShell>
+    );
+  }
 
   if (!user) {
     return (

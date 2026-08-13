@@ -1,15 +1,15 @@
 {
   "name": "mookup",
-  "version": "3.0.37",
+  "version": "3.0.38",
   "description": "Mookup desktop application",
   "author": "Team Mookup",
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "next dev",
     "electron": "node scripts/start-electron-local.mjs",
     "electron:dev": "node scripts/start-electron-local.mjs",
-    "electron:prepare": "next build --webpack && node scripts/prepare-electron-package.mjs",
+    "electron:prepare": "next build && node scripts/prepare-electron-package.mjs",
     "preelectron:pack": "npm run electron:prepare",
     "preelectron:dist": "npm run electron:prepare",
     "preelectron:publish": "npm run electron:prepare",

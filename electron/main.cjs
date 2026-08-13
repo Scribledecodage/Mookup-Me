@@ -11,6 +11,11 @@ const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const UPDATE_INSTALL_DELAY_MS = 5000;
 const SYSTEM_ACTIVITY_POLL_INTERVAL_MS = 3000;
 const BUNDLED_APP_PORT = 3210;
+const BUNDLED_SERVER_TIMEOUT_MS = 12000;
+
+// Déclarer le processus avant les fonctions de démarrage afin que le mode
+// empaqueté ne crée pas accidentellement une variable globale implicite.
+let nextServerProcess = null;
 
 // Le mode dev et le mode production ne doivent pas partager le verrou Electron.
 // Sinon `npm run electron` se ferme silencieusement si `electron:dev` tourne encore.
@@ -63,7 +68,7 @@ function getBundledNextAppPath() {
   return path.join(process.resourcesPath, 'app.asar.unpacked', 'next-app');
 }
 
-async function waitForLocalApp(url, timeoutMs = 30000) {
+async function waitForLocalApp(url, timeoutMs = BUNDLED_SERVER_TIMEOUT_MS) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
@@ -1114,12 +1119,42 @@ function getTitleBarOverlayOptions() {
   };
 }
 
-function createMainWindow() {
-  const iconFile = process.platform === 'win32' ? 'Logo.ico' : 'Logo.png';
-  const iconPath = app.isPackaged
-    ? path.join(__dirname, 'public', iconFile)
-    : path.join(__dirname, '..', 'public', iconFile);
+function getApplicationAssetPath(fileName) {
+  return app.isPackaged
+    ? path.join(__dirname, 'public', fileName)
+    : path.join(__dirname, '..', 'public', fileName);
+}
 
+function getApplicationIconPath() {
+  return getApplicationAssetPath(process.platform === 'win32' ? 'Logo.ico' : 'Logo.png');
+}
+
+function getApplicationIcon() {
+  const iconPath = getApplicationIconPath();
+  const icon = nativeImage.createFromPath(iconPath);
+  return icon.isEmpty() ? iconPath : icon;
+}
+
+function getStartupSplashUrl() {
+  const logoPath = getApplicationAssetPath('Logo.png');
+  const logo = nativeImage.createFromPath(logoPath);
+  const logoData = logo.isEmpty() ? '' : logo.toPNG().toString('base64');
+  return `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
+<html lang="fr"><head><meta charset="UTF-8"><style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f7f7f8;font-family:Segoe UI,Arial,sans-serif}
+body{display:grid;place-items:center;color:#242630}.splash{text-align:center}.logo{width:64px;height:64px;object-fit:contain;margin-bottom:14px}.name{font-size:20px;font-weight:600;letter-spacing:.01em}.hint{margin-top:8px;color:#737783;font-size:12px}
+</style></head><body><main class="splash"><img class="logo" src="data:image/png;base64,${logoData}" alt=""><div class="name">Mookup</div><div class="hint">Ouverture…</div></main></body></html>`)}`;
+}
+
+function loadMainWindowUrl(url) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  void mainWindow.loadURL(url).catch((error) => {
+    console.error(`Échec du chargement de ${url}:`, error);
+    mainWindow?.show();
+  });
+}
+
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -1134,7 +1169,7 @@ function createMainWindow() {
     resizable: true,
     thickFrame: true,
     title: 'Mookup',
-    icon: iconPath,
+    icon: getApplicationIcon(),
     backgroundColor: '#111318',
     // La barre de menus native ne doit pas réapparaître à côté de notre barre.
     autoHideMenuBar: true,
@@ -1161,6 +1196,10 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
   });
+
+  // Ne jamais cacher la fenêtre derrière une authentification ou un serveur
+  // lent : le splash est léger et le contenu remplacera celui-ci dès qu’il est prêt.
+  setTimeout(() => mainWindow?.show(), 1200);
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (
@@ -1216,19 +1255,21 @@ function createMainWindow() {
 
   const initialTaskAction = getTaskAction(process.argv);
   const initialUrl = getTaskUrl(initialTaskAction, process.argv);
-  void mainWindow.loadURL(initialUrl).catch((error) => {
-    console.error(`Échec du chargement de ${initialUrl}:`, error);
-    mainWindow?.show();
-  });
+  if (app.isPackaged && !configuredStartUrl) {
+    loadMainWindowUrl(getStartupSplashUrl());
+  } else {
+    loadMainWindowUrl(initialUrl);
+  }
 }
+
+app.setName('Mookup Client');
+app.setAppUserModelId(APP_ID);
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
-  app.setAppUserModelId(APP_ID);
-
   app.on('second-instance', (_event, commandLine) => {
     if (!mainWindow) return;
 
@@ -1253,7 +1294,7 @@ if (!gotSingleInstanceLock) {
     stopBundledNextServer();
   });
 
-  app.whenReady().then(async () => {
+  app.whenReady().then(() => {
     recordSuccessfulStart();
     writeUpdateLog('application-started', {
       version: app.getVersion(),
@@ -1264,15 +1305,26 @@ if (!gotSingleInstanceLock) {
     void configureWindowsJumpList(recentContacts);
     configureApplicationMenu();
     configureSessionPermissions();
-    try {
-      await startBundledNextServer();
-    } catch (error) {
-      console.error('[Electron] Interface locale indisponible, retour au site distant:', error.message);
-      startUrl = PRODUCTION_URL;
-    }
     createMainWindow();
     startSystemActivityTracking();
     configureAutoUpdater();
+
+    // Ne pas attendre le serveur Next pour afficher la fenêtre. Le serveur est
+    // lancé en parallèle du splash, puis la vraie interface est chargée dès
+    // qu’elle répond. En cas de problème, le site distant reste disponible.
+    void startBundledNextServer()
+      .then(() => {
+        if (app.isPackaged && !configuredStartUrl) {
+          loadMainWindowUrl(getTaskUrl(getTaskAction(process.argv), process.argv));
+        }
+      })
+      .catch(error => {
+        console.error('[Electron] Interface locale indisponible, retour au site distant:', error.message);
+        startUrl = PRODUCTION_URL;
+        if (app.isPackaged && !configuredStartUrl) {
+          loadMainWindowUrl(getTaskUrl(getTaskAction(process.argv), process.argv));
+        }
+      });
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow();

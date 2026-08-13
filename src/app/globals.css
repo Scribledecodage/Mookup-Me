@@ -1123,6 +1123,18 @@ html.electron-app [aria-disabled="true"] {
   overflow: hidden;
 }
 
+/* Les boutons Windows natifs occupent la zone droite de l’overlay. La barre
+   Mookup reste donc entièrement visible à gauche et ne passe jamais dessous. */
+.electron-titlebar-native {
+  padding-right: 138px;
+}
+
+.electron-titlebar-native .electron-titlebar-leading {
+  width: 100%;
+  max-width: calc(100% - 138px);
+  margin-left: 0;
+}
+
 .electron-titlebar-side {
   position: absolute;
   top: 0;
@@ -1341,7 +1353,8 @@ html.electron-app [aria-disabled="true"] {
 }
 
 @media (max-width: 560px) {
-  .electron-titlebar { padding: 0 6px; }
+  .electron-titlebar { padding-left: 6px; }
+  .electron-titlebar:not(.electron-titlebar-native) { padding-right: 6px; }
   .electron-titlebar-leading { gap: 7px; }
   .electron-titlebar-left { left: 6px; }
   .electron-titlebar-right { right: 6px; gap: 5px; }

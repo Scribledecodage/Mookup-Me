@@ -76,7 +76,10 @@ function ElectronTitleBar() {
   ];
 
   return (
-    <header className="electron-titlebar" aria-label="Barre de titre Mookup">
+    <header
+      className={`electron-titlebar ${isMac ? 'electron-titlebar-mac' : 'electron-titlebar-native'}`}
+      aria-label="Barre de titre Mookup"
+    >
       <div className="electron-titlebar-leading" style={noDragStyle}>
         <div className="electron-titlebar-side electron-titlebar-left" style={noDragStyle}>
           <WindowButton label="Précédent" onClick={() => navigate('back')}>
