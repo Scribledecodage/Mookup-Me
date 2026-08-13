@@ -6,7 +6,7 @@
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "electron": "node scripts/start-electron-local.mjs",
     "electron:dev": "node scripts/start-electron-local.mjs",
     "preelectron:pack": "node scripts/prepare-electron-package.mjs",
