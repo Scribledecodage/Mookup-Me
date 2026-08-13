@@ -24,6 +24,7 @@ import TermsPage from './pages/TermsPage';
 import VoiceVideoPage from './pages/VoiceVideoPage';
 import AdminPage from './pages/AdminPage';
 import WindowsAppPage from './pages/WindowsAppPage';
+import MobileAppPage from './pages/MobileAppPage';
 
 const PROFILE_PAGES = {
   infos: AccountInfoPage,
@@ -46,6 +47,7 @@ const PROFILE_PAGES = {
   connexions: ConnectionsPage,
   'applications-connectees': ConnectedAppsPage,
   'application-windows': WindowsAppPage,
+  'application-mobile': MobileAppPage,
   developpeur: DeveloperPage,
   'conditions-utilisation': TermsPage,
   confidentialite: PrivacyPage,

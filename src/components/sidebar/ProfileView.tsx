@@ -8,6 +8,7 @@ import {
   Key,
   UserCircle,
   WindowsLogo,
+  DeviceMobile,
   Desktop,
   IdentificationCard,
   Lock,
@@ -50,6 +51,7 @@ export type ProfileSection =
   | 'activite-desktop'
   | 'applications-connectees'
   | 'application-windows'
+  | 'application-mobile'
   | 'developpeur'
   | 'bio'
   | 'visibilite'
@@ -111,11 +113,12 @@ const SECTIONS = [
   },
   {
     id: 'application' as const,
-    label: 'Application',
-    desc: 'Installer Mookup sur votre ordinateur',
-    icon: WindowsLogo,
+    label: 'Installer les applications',
+    desc: 'Installer Mookup sur vos appareils',
+    icon: DeviceMobile,
     items: [
-      { id: 'application-windows' as ProfileSection, label: 'Installer l’application Windows', desc: 'Télécharger la dernière version de Mookup', icon: WindowsLogo },
+      { id: 'application-windows' as ProfileSection, label: 'Installer sur Windows', desc: 'Télécharger la version pour ordinateur', icon: WindowsLogo },
+      { id: 'application-mobile' as ProfileSection, label: 'Installer sur téléphone', desc: 'Android et iPhone — bientôt disponible', icon: DeviceMobile },
     ],
   },
   {

@@ -18,6 +18,7 @@ const PROFILE_SECTIONS = new Set([
   'activite-desktop',
   'applications-connectees',
   'application-windows',
+  'application-mobile',
   'developpeur',
   'bio',
   'visibilite',

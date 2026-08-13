@@ -52,7 +52,7 @@ function getTaskAction(argv) {
   return action && Object.prototype.hasOwnProperty.call(TASK_ROUTES, action) ? action : null;
 }
 
-function getTaskUrl(action, argv = []) {
+function getTaskUrl(action, argv = [], baseUrl = startUrl) {
   if (action === 'open-recent-contact') {
     const encodedChatId = getTaskArgument(argv, '--chat');
     if (encodedChatId) {
@@ -62,11 +62,11 @@ function getTaskUrl(action, argv = []) {
       } catch {
         // Garder l’identifiant brut si l’argument n’est pas encodé.
       }
-      return new URL(`/discussions/privee/${encodeURIComponent(chatId)}`, startUrl).toString();
+      return new URL(`/discussions/privee/${encodeURIComponent(chatId)}`, baseUrl).toString();
     }
   }
-  if (!action) return startUrl;
-  return new URL(TASK_ROUTES[action], startUrl).toString();
+  if (!action) return baseUrl;
+  return new URL(TASK_ROUTES[action], baseUrl).toString();
 }
 
 function getBundledNextAppPath() {
@@ -1141,17 +1141,6 @@ function getApplicationIcon() {
   return icon.isEmpty() ? iconPath : icon;
 }
 
-function getStartupSplashUrl() {
-  const logoPath = getApplicationAssetPath('Logo.png');
-  const logo = nativeImage.createFromPath(logoPath);
-  const logoData = logo.isEmpty() ? '' : logo.toPNG().toString('base64');
-  return `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
-<html lang="fr"><head><meta charset="UTF-8"><style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f7f7f8;font-family:Segoe UI,Arial,sans-serif}
-body{display:grid;place-items:center;color:#242630}.splash{text-align:center}.logo{width:64px;height:64px;object-fit:contain;margin-bottom:14px}.name{font-size:20px;font-weight:600;letter-spacing:.01em}.hint{margin-top:8px;color:#737783;font-size:12px}
-</style></head><body><main class="splash"><img class="logo" src="data:image/png;base64,${logoData}" alt=""><div class="name">Mookup</div><div class="hint">Ouverture…</div></main></body></html>`)}`;
-}
-
 function loadMainWindowUrl(url) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   void mainWindow.loadURL(url).catch((error) => {
@@ -1166,8 +1155,8 @@ function createMainWindow() {
     height: 900,
     minWidth: 960,
     minHeight: 640,
-    // Afficher immédiatement le cadre et le splash ; le serveur Next se lance
-    // en parallèle et ne peut plus retarder l’animation d’ouverture.
+    // Afficher immédiatement la fenêtre ; aucune animation ou page splash
+    // intermédiaire ne doit retarder l’interface.
     show: true,
     // Garder la barre Mookup personnalisée tout en exposant les contrôles
     // natifs Windows/Linux (réduire, agrandir, fermer).
@@ -1267,12 +1256,12 @@ function createMainWindow() {
   });
 
   const initialTaskAction = getTaskAction(process.argv);
-  const initialUrl = getTaskUrl(initialTaskAction, process.argv);
-  if (app.isPackaged && !configuredStartUrl) {
-    loadMainWindowUrl(getStartupSplashUrl());
-  } else {
-    loadMainWindowUrl(initialUrl);
-  }
+  const initialUrl = getTaskUrl(
+    initialTaskAction,
+    process.argv,
+    app.isPackaged && !configuredStartUrl ? PRODUCTION_URL : startUrl,
+  );
+  loadMainWindowUrl(initialUrl);
 }
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -1320,7 +1309,7 @@ if (!gotSingleInstanceLock) {
     configureAutoUpdater();
 
     // Ne pas attendre le serveur Next pour afficher la fenêtre. Le serveur est
-    // lancé en parallèle du splash, puis la vraie interface est chargée dès
+    // lancé en parallèle, puis l’interface locale remplace le site distant dès
     // qu’elle répond. En cas de problème, le site distant reste disponible.
     void startBundledNextServer()
       .then(() => {

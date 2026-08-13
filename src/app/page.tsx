@@ -58,6 +58,7 @@ const PROFILE_SECTION_PATHS: Record<ProfileSection, string> = {
   'activite-desktop': '/profil/activite-desktop',
   'applications-connectees': '/profil/applications-connectees',
   'application-windows': '/profil/application-windows',
+  'application-mobile': '/profil/application-mobile',
   developpeur: '/profil/developpeur',
   bio: '/profil/bio',
   visibilite: '/profil/visibilite',
@@ -126,7 +127,7 @@ function getTabFromPath(pathname: string | null): string {
   return 'discussion';
 }
 
-// ─── Salutation animée ──────────────────────────────────────────────────────
+// ─── Salutation ──────────────────────────────────────────────────────────────
 
 function getGreeting(): { text: string; emoji: string } {
   const h = new Date().getHours();
@@ -149,9 +150,6 @@ const PUBLIC_CONSOLE_MESSAGE = "Salut 👋 merci de ne pas modifier mon code, je
 function WelcomePanel() {
   const { text, emoji } = getGreeting();
   const full = text;
-  const [displayed, setDisplayed] = useState('');
-  const [showEmoji, setShowEmoji] = useState(false);
-  const indexRef = useRef(0);
 
   // Le matériau Acrylic/Mica est partagé par la page web et l’application Electron.
   const [latestWindowsVersion, setLatestWindowsVersion] = useState<string | null>(null);
@@ -176,24 +174,6 @@ function WelcomePanel() {
       active = false;
       window.removeEventListener('focus', checkLatestWindowsVersion);
     };
-  }, []);
-
-  // ── Typewriter ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    setDisplayed('');
-    setShowEmoji(false);
-    indexRef.current = 0;
-    const speed = 48;
-    const timer = setInterval(() => {
-      indexRef.current += 1;
-      setDisplayed(full.slice(0, indexRef.current));
-      if (indexRef.current >= full.length) {
-        clearInterval(timer);
-        setTimeout(() => setShowEmoji(true), 120);
-      }
-    }, speed);
-    return () => clearInterval(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -256,23 +236,11 @@ function WelcomePanel() {
           className="text-[22px] font-light text-gray-600 tracking-tight"
           style={{ fontFamily: 'var(--font-dm-sans), "DM Sans", sans-serif', minHeight: '1.5em' }}
         >
-          {displayed}
-          {displayed.length < full.length && (
-            <span
-              className="inline-block w-[2px] h-[1.1em] bg-gray-400 ml-[2px] align-middle"
-              style={{ animation: 'blink 0.7s step-end infinite' }}
-            />
-          )}
-          {showEmoji && (
-            <span className="ml-2 inline-block" style={{ animation: 'popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
-              <AppleEmojiText text={emoji} large={false} />
-            </span>
-          )}
+          {full}
+          <span className="ml-2 inline-block">
+            <AppleEmojiText text={emoji} large={false} />
+          </span>
         </p>
-        <style>{`
-          @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-          @keyframes popIn { from{opacity:0;transform:scale(0.5)} to{opacity:1;transform:scale(1)} }
-        `}</style>
       </div>
     </div>
 
@@ -782,7 +750,8 @@ export default function Home() {
         'confidentialite-activites': 'Confidentialité des activités',
         'activite-desktop': 'Activité sur l’ordinateur',
         'applications-connectees': 'Applications connectées',
-        'application-windows': 'Application Windows',
+        'application-windows': 'Installer sur Windows',
+        'application-mobile': 'Installer sur téléphone',
         developpeur: 'Développeur',
         bio: 'Bio et passions',
         visibilite: 'Visibilité',
@@ -862,12 +831,7 @@ export default function Home() {
   if (loading) {
     return (
       <ElectronWindowShell>
-        <div className="flex h-full items-center justify-center bg-[#f7f7f8]" aria-label="Chargement de Mookup">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <img src="/Logo.png" alt="Mookup" width={56} height={56} className="object-contain" />
-            <p className="text-sm text-gray-500">Ouverture de Mookup…</p>
-          </div>
-        </div>
+        <div className="h-full bg-[#f7f7f8]" aria-label="Chargement de Mookup" />
       </ElectronWindowShell>
     );
   }
