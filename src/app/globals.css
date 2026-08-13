@@ -5,7 +5,7 @@
 
 @layer base {
   html, body, input, textarea, button, select {
-    font-family: var(--font-geist-sans), "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    font-family: var(--font-dm-sans), "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
   }
   
   iframe {
@@ -23,8 +23,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-dm-sans);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --animate-spin-slow: spin 3s linear infinite;
 }
 
@@ -36,10 +36,30 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar fine et visible dans toutes les zones défilantes. */
-* { scrollbar-width: thin; }
-*::-webkit-scrollbar { width: 3px; height: 3px; }
-*::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 999px; }
+/* Barres de défilement fines, sans fond opaque, dans toutes les zones défilantes. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.65);
+}
 
 /* Police DM Sans sur les éléments UI (titres, noms, nav, headers) — pas sur les messages */
 h1, h2, h3, h4, h5, h6,
@@ -1015,6 +1035,31 @@ header, nav,
   .mookup-version-loader span {
     animation: none;
   }
+}
+
+/* Curseurs natifs personnalisés pour Electron : aucun élément ne suit la souris. */
+html.electron-app {
+  cursor: url("/cursors/apple-pointer.svg") 6 3, default;
+}
+
+html.electron-app a,
+html.electron-app button:not(:disabled),
+html.electron-app label,
+html.electron-app summary,
+html.electron-app [role="button"],
+html.electron-app [class~="cursor-pointer"] {
+  cursor: url("/cursors/apple-link.svg") 7 4, pointer;
+}
+
+html.electron-app input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]),
+html.electron-app textarea,
+html.electron-app [contenteditable="true"] {
+  cursor: url("/cursors/apple-text.svg") 11 11, text;
+}
+
+html.electron-app button:disabled,
+html.electron-app [aria-disabled="true"] {
+  cursor: url("/cursors/apple-unavailable.svg") 4 1, not-allowed;
 }
 
 /* Barre de titre native remplacée par la barre Mookup dans Electron. */

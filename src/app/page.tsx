@@ -450,6 +450,7 @@ export default function Home() {
   );
   const publicConsoleMessageLoggedRef = useRef(false);
   const [selectedChat, setSelectedChat] = useState<string | null>(initialRoute.chatId);
+  const [openConversationToken, setOpenConversationToken] = useState(0);
   const [selectedChatData, setSelectedChatData] = useState<{ name: string, avatar?: string } | null>(null);
   const [activeTab, setActiveTab] = useState<string>(initialRoute.tab);
   const [botSection, setBotSection] = useState<BotSection>(initialRoute.botSection);
@@ -505,6 +506,26 @@ export default function Home() {
         : 'groupe';
     navigateToPath(`/discussions/${type}/${encodeURIComponent(chatId)}`, { appTab: 'discussion', chatId });
   };
+
+  useEffect(() => {
+    const removeNotificationListener = window.electronAPI?.onNotificationClicked?.((data) => {
+      if (!data?.conversationId) return;
+
+      setSelectedChat(data.conversationId);
+      setSelectedChatData({
+        name: data.conversationName || 'Conversation',
+        avatar: data.avatar,
+      });
+      setActiveTab('discussion');
+      setMobileContent(null);
+      setOpenConversationToken(token => token + 1);
+      navigateToDiscussion(data.conversationId);
+    });
+
+    return () => removeNotificationListener?.();
+  // navigateToDiscussion only uses stable state setters and the URL helper.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleViewMyProfile = () => setShowOwnProfile(true);
   useEffect(() => {
@@ -916,9 +937,12 @@ export default function Home() {
           ))}
           {/* NAV */}
           <nav style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '20px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, minWidth: 0, flexShrink: 0 }}>
               <img src="/Logo.png" alt="Mookup" width={32} height={32} style={{ display: 'block', width: 32, height: 32, flexShrink: 0 }} />
-              <span style={{ color: '#fff', fontWeight: 400, fontSize: '1.1em', letterSpacing: '0.06em', fontFamily: 'var(--font-dm-sans), "DM Sans", sans-serif', whiteSpace: 'nowrap' }}>Mookup</span>
+              <div style={{ display: 'flex', minWidth: 0, maxWidth: 240, flexDirection: 'column', gap: 2 }}>
+                <span style={{ color: '#fff', fontWeight: 400, fontSize: '1.1em', lineHeight: 1.1, letterSpacing: '0.06em', fontFamily: 'var(--font-dm-sans), "DM Sans", sans-serif', whiteSpace: 'nowrap' }}>Mookup</span>
+                <span style={{ color: 'rgba(255,255,255,0.72)', fontWeight: 300, fontSize: '0.62em', lineHeight: 1.2, letterSpacing: '0.01em' }}>Un espace pensé pour tes amis, tes proches et ta famille.</span>
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               {/* Connexion caché sur mobile, visible à partir de sm */}
@@ -1095,6 +1119,7 @@ export default function Home() {
             }
           }} 
           selectedGroupId={selectedChat}
+          openConversationToken={openConversationToken}
           onTabChange={(tabId) => {
             setActiveTab(tabId);
             if (tabId === 'bots') setBotSection('accueil');

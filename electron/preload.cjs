@@ -8,7 +8,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.send('electron-window-minimize'),
   toggleMaximizeWindow: () => ipcRenderer.send('electron-window-toggle-maximize'),
   closeWindow: () => ipcRenderer.send('electron-window-close'),
+  setUnreadCount: (count, imageDataUrl) => {
+    if (typeof count !== 'number' || !Number.isFinite(count) || count <= 0) return;
+    if (typeof imageDataUrl !== 'string' || !imageDataUrl.startsWith('data:image/png')) return;
+    ipcRenderer.send('electron-unread-count', Math.floor(count), imageDataUrl);
+  },
+  clearUnreadCount: () => {
+    ipcRenderer.send('electron-unread-clear');
+  },
+  showNativeMessageNotification: (notification) => {
+    if (!notification || typeof notification !== 'object') return;
+    ipcRenderer.send('electron-native-message-notification', notification);
+  },
+  onNotificationClicked: (listener) => {
+    if (typeof listener !== 'function') return () => {};
+
+    const handler = (_event, data) => listener(data);
+    ipcRenderer.on('electron-notification-clicked', handler);
+    return () => ipcRenderer.removeListener('electron-notification-clicked', handler);
+  },
   isWindowMaximized: () => ipcRenderer.invoke('electron-window-is-maximized'),
+  isWindowFocused: () => ipcRenderer.invoke('electron-window-is-focused'),
   requestAbout: () => ipcRenderer.send('electron-about-request'),
   onWindowStateChanged: (listener) => {
     if (typeof listener !== 'function') return () => {};
@@ -16,6 +36,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_event, maximized) => listener(maximized === true);
     ipcRenderer.on('electron-window-state-changed', handler);
     return () => ipcRenderer.removeListener('electron-window-state-changed', handler);
+  },
+  onWindowFocusChanged: (listener) => {
+    if (typeof listener !== 'function') return () => {};
+
+    const handler = (_event, focused) => listener(focused === true);
+    ipcRenderer.on('electron-window-focus-changed', handler);
+    return () => ipcRenderer.removeListener('electron-window-focus-changed', handler);
   },
   getUpdateDebugHistory: () => ipcRenderer.invoke('electron-update-debug-history'),
   getSystemActivity: () => ipcRenderer.invoke('electron-system-activity-current'),

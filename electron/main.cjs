@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, session, shell, ipcMain, nativeImage, screen, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Menu, Notification, session, shell, ipcMain, nativeImage, screen, desktopCapturer } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -56,6 +56,7 @@ function getTaskUrl(action, argv = []) {
 }
 
 let mainWindow = null;
+let currentUnreadCount = 0;
 let updateCheckTimer = null;
 let updateInstallTimer = null;
 let systemActivityTimer = null;
@@ -77,10 +78,125 @@ const updateDebugHistory = [];
 let recentContacts = [];
 const MAX_UPDATE_DEBUG_HISTORY = 200;
 
+function updateTaskbarUnreadBadge(count, imageDataUrl = '') {
+  const nextCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+
+  // Un compteur à zéro peut être transitoire pendant la synchronisation React.
+  // L'effacement officiel passe exclusivement par electron-unread-clear.
+  if (nextCount === 0) return;
+
+  currentUnreadCount = nextCount;
+  if (process.platform !== 'win32' || !mainWindow || mainWindow.isDestroyed()) return;
+  if (typeof imageDataUrl !== 'string' || !imageDataUrl.startsWith('data:image/png')) return;
+
+  const overlay = nativeImage.createFromDataURL(imageDataUrl).resize({ width: 16, height: 16 });
+  if (overlay.isEmpty()) return;
+  const label = currentUnreadCount > 9 ? '9+' : String(currentUnreadCount);
+  mainWindow.setOverlayIcon(overlay, `${label} message${currentUnreadCount > 1 ? 's' : ''} non lu${currentUnreadCount > 1 ? 's' : ''}`);
+}
+
+function clearTaskbarUnreadBadge() {
+  currentUnreadCount = 0;
+  if (process.platform !== 'win32' || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.setOverlayIcon(null, 'Aucun message non lu');
+}
+
+ipcMain.on('electron-unread-count', (_event, count, imageDataUrl) => {
+  updateTaskbarUnreadBadge(Number(count), imageDataUrl);
+});
+
+ipcMain.on('electron-unread-clear', () => {
+  clearTaskbarUnreadBadge();
+});
+
+const activeNativeNotifications = new Map();
+
+function getNotificationFallbackIconPath() {
+  return app.isPackaged
+    ? path.join(app.getAppPath(), 'public', 'Logo.png')
+    : path.join(__dirname, '..', 'public', 'Logo.png');
+}
+
+async function resolveNotificationIcon(iconUrl) {
+  if (typeof iconUrl === 'string' && /^https?:\/\//i.test(iconUrl)) {
+    try {
+      const response = await fetch(iconUrl, { redirect: 'error' });
+      const contentLength = Number(response.headers.get('content-length') || 0);
+      if (response.ok && (!contentLength || contentLength <= 4 * 1024 * 1024)) {
+        const icon = nativeImage.createFromBuffer(Buffer.from(await response.arrayBuffer()));
+        if (!icon.isEmpty()) return icon.resize({ width: 48, height: 48 });
+      }
+    } catch {
+      // Utiliser le logo Mookup si l'avatar distant n'est pas disponible.
+    }
+  }
+
+  return nativeImage.createFromPath(getNotificationFallbackIconPath()).resize({ width: 48, height: 48 });
+}
+
+function openConversationFromNotification(data) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+  mainWindow.webContents.send('electron-notification-clicked', data);
+}
+
+async function showNativeMessageNotification(data) {
+  if (!Notification.isSupported() || !data || typeof data !== 'object') return;
+
+  const conversationId = typeof data.conversationId === 'string' ? data.conversationId.trim() : '';
+  const messageId = typeof data.messageId === 'string' ? data.messageId.trim() : '';
+  if (!conversationId || !messageId) return;
+
+  const senderName = typeof data.senderName === 'string' && data.senderName.trim()
+    ? data.senderName.trim().slice(0, 80)
+    : 'Nouveau message';
+  const body = typeof data.body === 'string' && data.body.trim()
+    ? data.body.trim().slice(0, 240)
+    : 'Tu as reçu un nouveau message.';
+  const conversationName = typeof data.conversationName === 'string' && data.conversationName.trim()
+    ? data.conversationName.trim().slice(0, 100)
+    : conversationId;
+  const icon = await resolveNotificationIcon(data.iconUrl);
+  const notification = new Notification({
+    id: `mookup-message-${messageId}`,
+    groupId: `mookup-conversation-${conversationId}`,
+    groupTitle: 'Mookup',
+    title: senderName,
+    body,
+    icon,
+    timeoutType: 'default',
+    urgency: 'normal',
+  });
+
+  notification.on('click', () => {
+    openConversationFromNotification({
+      conversationId,
+      conversationName,
+      avatar: typeof data.iconUrl === 'string' ? data.iconUrl : undefined,
+    });
+  });
+  notification.on('close', () => {
+    activeNativeNotifications.delete(messageId);
+  });
+  activeNativeNotifications.set(messageId, notification);
+  notification.show();
+}
+
+ipcMain.on('electron-native-message-notification', (_event, data) => {
+  void showNativeMessageNotification(data);
+});
+
 ipcMain.handle('electron-update-debug-history', () => updateDebugHistory);
 
 ipcMain.handle('electron-window-is-maximized', (event) => {
   return BrowserWindow.fromWebContents(event.sender)?.isMaximized() === true;
+});
+
+ipcMain.handle('electron-window-is-focused', (event) => {
+  return BrowserWindow.fromWebContents(event.sender)?.isFocused() === true;
 });
 
 ipcMain.on('electron-window-minimize', (event) => {
@@ -1000,6 +1116,14 @@ function createMainWindow() {
 
   mainWindow.on('maximize', sendWindowState);
   mainWindow.on('unmaximize', sendWindowState);
+  mainWindow.on('focus', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('electron-window-focus-changed', true);
+  });
+  mainWindow.on('blur', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('electron-window-focus-changed', false);
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;

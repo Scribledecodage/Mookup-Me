@@ -42,17 +42,47 @@ interface HomeViewProps {
   onBotSectionChange?: (section: BotSection) => void;
   onProfileSectionChange?: (section: ProfileSection) => void;
   selectedGroupId?: string | null;
+  /** Incrémenté lorsqu'une notification native ouvre explicitement une conversation. */
+  openConversationToken?: number;
   /** Appelé sur mobile quand on veut ouvrir la colonne de contenu (bots/profil) */
   onMobileOpenContent?: (tab: 'bots' | 'profil', section?: string) => void;
 }
 
-export default function HomeView({ user, activeTab: controlledActiveTab, onSelectGroup, onTabChange, botSection: controlledBotSection, onBotSectionChange, onProfileSectionChange, selectedGroupId, onMobileOpenContent }: HomeViewProps) {
+function createUnreadBadgeImage(count: number): string {
+  const label = count > 9 ? '9+' : String(count);
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+
+  const context = canvas.getContext('2d');
+  if (!context) return '';
+
+  context.clearRect(0, 0, 64, 64);
+  context.beginPath();
+  context.arc(32, 32, 30, 0, Math.PI * 2);
+  context.fillStyle = '#ef4444';
+  context.fill();
+  context.lineWidth = 4;
+  context.strokeStyle = '#ffffff';
+  context.stroke();
+  context.fillStyle = '#ffffff';
+  context.font = `700 ${label.length > 1 ? 25 : 34}px "Segoe UI", Arial, sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText(label, 32, 33);
+
+  return canvas.toDataURL('image/png');
+}
+
+export default function HomeView({ user, activeTab: controlledActiveTab, onSelectGroup, onTabChange, botSection: controlledBotSection, onBotSectionChange, onProfileSectionChange, selectedGroupId, openConversationToken, onMobileOpenContent }: HomeViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState(controlledActiveTab || 'discussion');
   const activeTab = controlledActiveTab ?? localActiveTab;
   const [localBotSection, setLocalBotSection] = useState<BotSection>('accueil');
   const botSection = controlledBotSection ?? localBotSection;
   const [profileSection, setProfileSection] = useState<ProfileSection>('infos');
   const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
+  const unreadCountsRef = useRef<{ [key: string]: number }>({});
+  const unreadCountsReadyRef = useRef(false);
   const [lastMessageTimes, setLastMessageTimes] = useState<{ [key: string]: string }>({});
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [usersLoaded, setUsersLoaded] = useState(false);
@@ -60,6 +90,38 @@ export default function HomeView({ user, activeTab: controlledActiveTab, onSelec
   const [privateChatsLoaded, setPrivateChatsLoaded] = useState(false);
   const [customGroups, setCustomGroups] = useState<any[]>([]);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const electronWindowFocusedRef = useRef(true);
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.isElectron) return;
+
+    let active = true;
+    const focusPromise = api.isWindowFocused?.();
+    if (focusPromise) {
+      void focusPromise.then(focused => {
+        if (active) electronWindowFocusedRef.current = focused;
+      }).catch(() => {});
+    }
+    const handleWindowFocus = () => {
+      electronWindowFocusedRef.current = true;
+    };
+    const handleWindowBlur = () => {
+      electronWindowFocusedRef.current = false;
+    };
+    const removeFocusListener = api.onWindowFocusChanged?.(focused => {
+      electronWindowFocusedRef.current = focused;
+    });
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      active = false;
+      removeFocusListener?.();
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
+    };
+  }, []);
 
   // Auto-réparation du profil utilisateur si supprimé de Firestore
   useEffect(() => {
@@ -228,13 +290,32 @@ export default function HomeView({ user, activeTab: controlledActiveTab, onSelec
       readAtByGroupRef.current[selectedGroupId] = readAt;
       window.localStorage.setItem(`mookup_read_at_${selectedGroupId}`, String(readAt));
 
-      // Mise à jour optimiste : l’interface ne doit pas attendre Firebase.
+      // Mise à jour optimiste uniquement après un clic explicite sur la conversation.
+      const nextCounts = {
+        ...unreadCountsRef.current,
+        [selectedGroupId]: 0,
+      };
+      unreadCountsRef.current = nextCounts;
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setUnreadCounts(previous => ({ ...previous, [selectedGroupId]: 0 }));
+      setUnreadCounts(nextCounts);
+
+      // Le processus principal ne reçoit jamais un effacement implicite à 0.
+      // Seule cette action utilisateur peut supprimer l'overlay officiel Windows.
+      if (unreadCountsReadyRef.current) {
+        const remainingUnread = Object.values(nextCounts).reduce(
+          (total, count) => total + Math.max(0, count || 0),
+          0,
+        );
+        if (remainingUnread > 0) {
+          window.electronAPI?.setUnreadCount?.(remainingUnread, createUnreadBadgeImage(remainingUnread));
+        } else {
+          window.electronAPI?.clearUnreadCount?.();
+        }
+      }
     }
     
     // Dès qu'on sélectionne un groupe, on marque comme lus tous les messages non lus de ce groupe
-    if (selectedGroupId && user) {
+    if (selectedGroupId && user && document.visibilityState === 'visible' && (window.electronAPI?.isElectron ? electronWindowFocusedRef.current : document.hasFocus())) {
       messagesSnapshotRef.current.forEach(docSnap => {
         const msg = docSnap.data();
         const gid = msg.groupId || 'general';
@@ -248,7 +329,7 @@ export default function HomeView({ user, activeTab: controlledActiveTab, onSelec
         }
       });
     }
-  }, [selectedGroupId, user]);
+  }, [selectedGroupId, user, openConversationToken]);
 
   // Écouter les messages non lus et l'heure du dernier message
   useEffect(() => {
@@ -280,43 +361,50 @@ export default function HomeView({ user, activeTab: controlledActiveTab, onSelec
           && (!storedReadAt || messageTime > storedReadAt);
         
         if (isUnread) {
-          // Si on est actuellement dans ce groupe, on le marque comme lu directement ici
-          if (selectedGroupIdRef.current === gid) {
-             const msgRef = doc(db, 'messages', docSnap.id);
-             updateDoc(msgRef, {
-               [`readBy.${user.uid}`]: user.displayName || 'Anonyme'
-             }).catch(err => console.warn("Erreur marquage lecture:", err));
-          } else {
-            // Logique spécifique Snapchat (Team Mookup)
-            if (gid === 'snapchat') {
-              const isTeamNotification = msg.displayName === 'Team Mookup'
-                || msg.displayName === 'Team Mookup-Main'
-                || (msg.displayName === 'My IA' && (msg as any).targetUid === user.uid);
-              if (isTeamNotification) {
-                counts.snapchat++;
-                if (!times[gid] && msg.createdAt) {
-                  const date = msg.createdAt.toDate();
-                  times[gid] = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                }
-              }
-            } else {
-              // Pour les autres groupes (dont general)
-              counts[gid] = (counts[gid] || 0) + 1;
+          // Le composant Chat vérifie le focus natif avant de marquer un message lu.
+          // Ici, on compte toujours le message pour éviter tout effacement prématuré du badge.
+          if (gid === 'snapchat') {
+            const isTeamNotification = msg.displayName === 'Team Mookup'
+              || msg.displayName === 'Team Mookup-Main'
+              || (msg.displayName === 'My IA' && (msg as any).targetUid === user.uid);
+            if (isTeamNotification) {
+              counts.snapchat++;
               if (!times[gid] && msg.createdAt) {
                 const date = msg.createdAt.toDate();
                 times[gid] = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
               }
             }
+          } else {
+            // Pour les autres groupes (dont general)
+            counts[gid] = (counts[gid] || 0) + 1;
+            if (!times[gid] && msg.createdAt) {
+              const date = msg.createdAt.toDate();
+              times[gid] = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
           }
         }
       });
       
+      unreadCountsRef.current = counts;
+      unreadCountsReadyRef.current = true;
       setUnreadCounts(counts);
       setLastMessageTimes(times);
     });
 
     return () => unsubscribe();
   }, [user]);
+
+  // Synchroniser le total avec l’overlay natif de l’icône Electron.
+  useEffect(() => {
+    if (!user || !window.electronAPI?.setUnreadCount) return;
+
+    const totalUnread = Object.values(unreadCounts).reduce((total, count) => total + Math.max(0, count || 0), 0);
+    // Les compteurs positifs mettent à jour l'overlay officiel. Un zéro peut
+    // être transitoire et ne doit jamais l'effacer automatiquement.
+    if (totalUnread > 0) {
+      window.electronAPI.setUnreadCount(totalUnread, createUnreadBadgeImage(totalUnread));
+    }
+  }, [unreadCounts, user]);
 
   const handleStartPrivateChat = async (otherUser: any) => {
     if (!user) return;

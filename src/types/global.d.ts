@@ -46,9 +46,26 @@ interface Window {
     minimizeWindow?: () => void;
     toggleMaximizeWindow?: () => void;
     closeWindow?: () => void;
+    setUnreadCount?: (count: number, imageDataUrl?: string) => void;
+    clearUnreadCount?: () => void;
+    showNativeMessageNotification?: (notification: {
+      messageId: string;
+      conversationId: string;
+      conversationName?: string;
+      senderName: string;
+      body: string;
+      iconUrl?: string;
+    }) => void;
+    onNotificationClicked?: (listener: (data: {
+      conversationId: string;
+      conversationName?: string;
+      avatar?: string;
+    }) => void) => () => void;
     isWindowMaximized?: () => Promise<boolean>;
+    isWindowFocused?: () => Promise<boolean>;
     requestAbout?: () => void;
     onWindowStateChanged?: (listener: (maximized: boolean) => void) => () => void;
+    onWindowFocusChanged?: (listener: (focused: boolean) => void) => () => void;
     getUpdateDebugHistory?: () => Promise<ElectronUpdateDebugEntry[]>;
     getSystemActivity?: () => Promise<ElectronSystemActivity | null>;
     approveSystemActivity?: (appId: string) => void;

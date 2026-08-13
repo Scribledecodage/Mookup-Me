@@ -134,7 +134,12 @@ export default function ElectronWindowShell({ children }: { children: ReactNode 
   const [isElectron, setIsElectron] = useState(false);
 
   useEffect(() => {
-    setIsElectron(window.electronAPI?.isElectron === true);
+    if (window.electronAPI?.isElectron !== true) return;
+
+    document.documentElement.classList.add('electron-app');
+    setIsElectron(true);
+
+    return () => document.documentElement.classList.remove('electron-app');
   }, []);
 
   if (!isElectron) return children;

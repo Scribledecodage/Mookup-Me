@@ -1,25 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, DM_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import "gif-picker-react/style.css";
 
-const dmSans = DM_Sans({
+const dmSans = localFont({
+  src: [
+    { path: "./fonts/DM-Sans-300.ttf", weight: "300", style: "normal" },
+    { path: "./fonts/DM-Sans-400.ttf", weight: "400", style: "normal" },
+    { path: "./fonts/DM-Sans-500.ttf", weight: "500", style: "normal" },
+    { path: "./fonts/DM-Sans-600.ttf", weight: "600", style: "normal" },
+  ],
   variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+  display: "swap",
 });
 
 import VersionChecker from "@/components/VersionChecker";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -86,7 +81,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`min-h-full flex flex-col ${dmSans.variable} ${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`min-h-full flex flex-col ${dmSans.variable}`}>
         <VersionChecker />
         {children}
       </body>

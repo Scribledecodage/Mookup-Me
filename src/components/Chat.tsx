@@ -692,6 +692,9 @@ export default function Chat({
       orderBy('createdAt', 'asc'),
       limitToLast(messageLimit)
     );
+    // Les messages sont marqués lus uniquement par HomeView lorsqu'une
+    // conversation est sélectionnée explicitement dans la liste.
+    let electronWindowFocused = document.hasFocus();
 
     const mergeAndSet = (msgs: Message[]) => {
       const unique = Array.from(new Map(msgs.map(m => [m.id, m])).values());
@@ -726,7 +729,9 @@ export default function Chat({
       // Notification Logic
       if (!snap.metadata.hasPendingWrites) {
         const lastMsg = [...msgs].sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))[0];
-        if (notificationPreferencesRef.current.messagesGroups && lastMsg && lastMsg.uid !== user?.uid && (appStateRef.current !== 'active' || document.visibilityState !== 'visible')) {
+        const isWindowFocused = document.visibilityState === 'visible'
+          && (window.electronAPI?.isElectron ? electronWindowFocused : document.hasFocus());
+        if (notificationPreferencesRef.current.messagesGroups && lastMsg && lastMsg.uid !== user?.uid && (appStateRef.current !== 'active' || !isWindowFocused)) {
           if (localStorage.getItem('last_notif_id') !== lastMsg.id) {
             localStorage.setItem('last_notif_id', lastMsg.id);
             if (Capacitor.isNativePlatform()) {
@@ -736,7 +741,20 @@ export default function Chat({
               }
             } else {
               if (notificationPreferencesRef.current.sounds) audioRef.current?.play().catch(() => {});
-              if (notificationPreferencesRef.current.browser && Notification.permission === 'granted') {
+
+              const notificationBody = lastMsg.text
+                || (lastMsg.audioUrl ? '🎙️ Message vocal' : lastMsg.imageUrl ? '📸 Image' : lastMsg.videoUrl ? '🎥 Vidéo' : 'Message');
+
+              if (notificationPreferencesRef.current.browser && window.electronAPI?.isElectron && window.electronAPI.showNativeMessageNotification) {
+                window.electronAPI.showNativeMessageNotification({
+                  messageId: lastMsg.id,
+                  conversationId: groupId || 'general',
+                  conversationName: groupName,
+                  senderName: lastMsg.displayName || 'Nouveau message',
+                  body: notificationBody,
+                  iconUrl: lastMsg.photoURL || undefined,
+                });
+              } else if (notificationPreferencesRef.current.browser && Notification.permission === 'granted') {
                 const showMessageNotification = async () => {
                   let senderPhotoURL = lastMsg.photoURL || '';
 
@@ -753,7 +771,7 @@ export default function Chat({
 
                   const registration = await navigator.serviceWorker.ready;
                   await registration.showNotification(`Message de ${lastMsg.displayName}`, {
-                    body: lastMsg.text || (lastMsg.audioUrl ? '🎙️ Message vocal' : lastMsg.imageUrl ? '📸 Image' : lastMsg.videoUrl ? '🎥 Vidéo' : 'Message'),
+                    body: notificationBody,
                     icon: senderPhotoURL || '/Logo.png'
                   });
                 };
@@ -765,7 +783,33 @@ export default function Chat({
       }
     });
 
-    return () => unsub();
+    const handleWindowFocus = () => {
+      // Le retour sur la fenêtre ne suffit pas à valider la lecture.
+      // La conversation doit être sélectionnée explicitement dans la liste.
+      electronWindowFocused = true;
+    };
+    const handleWindowBlur = () => {
+      electronWindowFocused = false;
+    };
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('blur', handleWindowBlur);
+
+    const removeNativeFocusListener = window.electronAPI?.onWindowFocusChanged?.(focused => {
+      // Suivre le focus uniquement pour les notifications sonores, jamais pour
+      // effacer le badge de messages non lus.
+      electronWindowFocused = focused;
+    });
+    const focusPromise = window.electronAPI?.isWindowFocused?.();
+    if (focusPromise) void focusPromise.then(focused => {
+      electronWindowFocused = focused;
+    }).catch(() => {});
+
+    return () => {
+      unsub();
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
+      removeNativeFocusListener?.();
+    };
   }, [groupId, user?.uid, messageLimit, clearedAtTime]);
 
   const handleReply = (message: Message) => {
