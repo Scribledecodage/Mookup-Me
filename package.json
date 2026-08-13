@@ -6,17 +6,18 @@
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "electron": "node scripts/start-electron-local.mjs",
     "electron:dev": "node scripts/start-electron-local.mjs",
-    "preelectron:pack": "node scripts/prepare-electron-package.mjs",
-    "preelectron:dist": "node scripts/prepare-electron-package.mjs",
-    "preelectron:publish": "node scripts/prepare-electron-package.mjs",
+    "electron:prepare": "next build --webpack && node scripts/prepare-electron-package.mjs",
+    "preelectron:pack": "npm run electron:prepare",
+    "preelectron:dist": "npm run electron:prepare",
+    "preelectron:publish": "npm run electron:prepare",
     "electron:pack": "electron-builder --dir",
     "electron:dist": "electron-builder",
     "electron:publish": "electron-builder --publish always",
     "electron:release": "npm run electron:publish",
-    "predist": "node scripts/prepare-electron-package.mjs",
+    "predist": "npm run electron:prepare",
     "dist": "electron-builder",
     "prebuild": "node scripts/generate-version.mjs",
     "build": "next build",
@@ -99,7 +100,8 @@
     "productName": "Mookup Client",
     "asar": true,
     "asarUnpack": [
-      "node_modules/get-windows/lib/binding/**/*.node"
+      "node_modules/get-windows/lib/binding/**/*.node",
+      "next-app/**/*"
     ],
     "compression": "maximum",
     "npmRebuild": false,

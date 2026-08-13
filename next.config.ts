@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* output: 'export', */
+  // Le build standalone est embarqué dans l’installeur Electron.
+  output: 'standalone',
   images: {
     unoptimized: true,
   },
