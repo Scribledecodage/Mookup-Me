@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Notification, session, shell, ipcMain, nativeImage, screen, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Menu, Notification, session, shell, ipcMain, nativeImage, nativeTheme, screen, desktopCapturer } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -1046,6 +1046,15 @@ function configureSessionPermissions() {
   }
 }
 
+function getTitleBarOverlayOptions() {
+  const isDark = nativeTheme.shouldUseDarkColors;
+  return {
+    color: isDark ? '#1b1e25' : '#f7f7f8',
+    symbolColor: isDark ? '#f3f4f6' : '#60636c',
+    height: 38,
+  };
+}
+
 function createMainWindow() {
   const iconFile = process.platform === 'win32' ? 'Logo.ico' : 'Logo.png';
   const iconPath = app.isPackaged
@@ -1058,8 +1067,11 @@ function createMainWindow() {
     minWidth: 960,
     minHeight: 640,
     show: false,
-    // La barre native est remplacée par la barre Mookup rendue dans React.
-    frame: false,
+    // Garder la barre Mookup personnalisée tout en exposant les contrôles
+    // natifs Windows/Linux (réduire, agrandir, fermer).
+    ...(process.platform === 'darwin'
+      ? { frame: false }
+      : { titleBarStyle: 'hidden', titleBarOverlay: getTitleBarOverlayOptions() }),
     resizable: true,
     thickFrame: true,
     title: 'Mookup',
@@ -1077,6 +1089,15 @@ function createMainWindow() {
       devTools: true,
     },
   });
+
+  if (process.platform !== 'darwin') {
+    const updateTitleBarOverlay = () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      mainWindow.setTitleBarOverlay?.(getTitleBarOverlayOptions());
+    };
+    nativeTheme.on('updated', updateTitleBarOverlay);
+    mainWindow.once('closed', () => nativeTheme.removeListener('updated', updateTitleBarOverlay));
+  }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
