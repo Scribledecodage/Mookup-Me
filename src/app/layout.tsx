@@ -10,7 +10,6 @@ const dmSans = DM_Sans({
 });
 
 import VersionChecker from "@/components/VersionChecker";
-import ThemeManager from "@/components/ThemeManager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -89,7 +88,6 @@ export default function RootLayout({
       </head>
       <body className={`min-h-full flex flex-col ${dmSans.variable} ${geistSans.variable} ${geistMono.variable}`}>
         <VersionChecker />
-        <ThemeManager />
         {children}
       </body>
     </html>
