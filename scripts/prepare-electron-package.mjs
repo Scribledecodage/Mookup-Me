@@ -39,6 +39,11 @@ if (!fs.existsSync(path.join(standaloneDir, 'server.js')) || !fs.existsSync(stat
 
 const bundledAppDir = path.join(stagingDir, 'next-app');
 fs.cpSync(standaloneDir, bundledAppDir, { recursive: true });
+// Next.js peut tracer le dossier racine `dist` à cause des routes serveur.
+// Il ne doit jamais être embarqué dans Electron : il contient les anciens
+// installateurs et provoque leur signature répétée par electron-builder.
+fs.rmSync(path.join(bundledAppDir, 'dist'), { recursive: true, force: true });
+fs.rmSync(path.join(bundledAppDir, '.electron-app'), { recursive: true, force: true });
 fs.cpSync(path.join(root, 'public'), path.join(bundledAppDir, 'public'), { recursive: true });
 fs.mkdirSync(path.join(bundledAppDir, '.next'), { recursive: true });
 fs.cpSync(staticDir, path.join(bundledAppDir, '.next', 'static'), { recursive: true });
