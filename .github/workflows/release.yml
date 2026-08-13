@@ -14,6 +14,7 @@ env:
 
 jobs:
   release:
+    if: github.ref_name != 'v0.0.1'
     name: Release on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:

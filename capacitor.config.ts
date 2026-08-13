@@ -4,7 +4,7 @@ const appUrl = process.env.MOOKUP_APP_URL?.trim() || 'https://mookup-me.vercel.a
 
 const config: CapacitorConfig = {
   appId: 'com.mookup.app',
-  appName: 'Mookup',
+  appName: 'Mookup Messagerie',
   webDir: 'out',
   server: {
     url: appUrl,

@@ -9,8 +9,9 @@ const nativeVersion = packageJson.version;
 
 const versionData = {
   version: webVersion, // Pour la mise à jour Service Worker (UI/Design)
-  nativeVersion: nativeVersion, // Pour la mise à jour APK (Plugins/Système)
-  apkUrl: "https://github.com/Clipdescript/Messagerie/releases/latest/download/Messagerie.apk"
+  nativeVersion: nativeVersion, // Version Electron / desktop
+  androidVersion: '0.0.1',
+  apkUrl: "https://github.com/Scribledecodage/Mookup-Me/releases/download/v0.0.1/Mookup-Messagerie.apk"
 };
 
 fs.writeFileSync('./public/version.json', JSON.stringify(versionData, null, 2));

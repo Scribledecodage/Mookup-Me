@@ -8,6 +8,7 @@ import {
   Key,
   UserCircle,
   WindowsLogo,
+  AndroidLogo,
   DeviceMobile,
   Desktop,
   IdentificationCard,
@@ -118,7 +119,7 @@ const SECTIONS = [
     icon: DeviceMobile,
     items: [
       { id: 'application-windows' as ProfileSection, label: 'Installer sur Windows', desc: 'Télécharger la version pour ordinateur', icon: WindowsLogo },
-      { id: 'application-mobile' as ProfileSection, label: 'Installer sur téléphone', desc: 'Android et iPhone — bientôt disponible', icon: DeviceMobile },
+      { id: 'application-mobile' as ProfileSection, label: 'Installer sur téléphone', desc: 'Android disponible · iPhone bientôt', icon: AndroidLogo },
     ],
   },
   {
@@ -153,8 +154,15 @@ const SECTIONS = [
   },
 ];
 
+interface ProfileUser {
+  uid?: string;
+  displayName?: string | null;
+  email?: string | null;
+  photoURL?: string | null;
+}
+
 interface ProfileViewProps {
-  user?: any;
+  user?: ProfileUser;
   activeSection?: ProfileSection;
   onSelectSection?: (section: ProfileSection) => void;
   onMobileNavigate?: (section: ProfileSection) => void;
