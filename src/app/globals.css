@@ -1278,6 +1278,45 @@ html.electron-app [aria-disabled="true"] {
   box-shadow: 0 2px 8px rgba(185, 71, 84, 0.18);
 }
 
+/* Retour visuel discret : la couleur change, les ronds restent immobiles. */
+.electron-titlebar-right .electron-titlebar-window-control:nth-of-type(1):hover {
+  background: #e9aaa5;
+  border-color: #d8918b;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.56), 0 2px 7px rgba(185, 71, 84, 0.18);
+}
+
+.electron-titlebar-right .electron-titlebar-window-control:nth-of-type(2):hover {
+  background: #ebce8d;
+  border-color: #d2ad69;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.56), 0 2px 7px rgba(180, 135, 38, 0.16);
+}
+
+.electron-titlebar-right .electron-titlebar-window-control:nth-of-type(3):hover {
+  background: #acd6b5;
+  border-color: #8fbd99;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.56), 0 2px 7px rgba(65, 135, 81, 0.16);
+}
+
+.electron-titlebar-right .electron-titlebar-window-control:nth-of-type(1):active {
+  background: #df9b95;
+  border-color: #c9857e;
+}
+
+.electron-titlebar-right .electron-titlebar-window-control:nth-of-type(2):active {
+  background: #e1c17b;
+  border-color: #c69e59;
+}
+
+.electron-titlebar-right .electron-titlebar-window-control:nth-of-type(3):active {
+  background: #9fcaa8;
+  border-color: #80ad89;
+}
+
+.electron-titlebar-window-control:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.62);
+  outline-offset: 3px;
+}
+
 .electron-titlebar-separator {
   display: none;
 }
