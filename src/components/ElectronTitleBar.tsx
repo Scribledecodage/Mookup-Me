@@ -37,11 +37,16 @@ function WindowButton({
 }
 
 function ElectronTitleBar() {
+  const [isMac, setIsMac] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
     const api = window.electronAPI;
     if (!api?.isElectron) return;
+
+    const mac = api.platform === 'darwin';
+    setIsMac(mac);
+    if (!mac) return;
 
     const maximizedPromise = api.isWindowMaximized?.();
     if (maximizedPromise) void maximizedPromise.then(setIsMaximized).catch(() => {});
@@ -101,31 +106,33 @@ function ElectronTitleBar() {
         </nav>
       </div>
 
-      <div className="electron-titlebar-side electron-titlebar-right" style={noDragStyle}>
-        <span className="electron-titlebar-separator" aria-hidden="true" />
-        <WindowButton
-          label="Fermer"
-          onClick={() => window.electronAPI?.closeWindow?.()}
-          windowControl
-          danger
-        >
-          <span className="mookup-window-shape mookup-window-shape-close" aria-hidden="true" />
-        </WindowButton>
-        <WindowButton
-          label="Réduire"
-          onClick={() => window.electronAPI?.minimizeWindow?.()}
-          windowControl
-        >
-          <span className="mookup-window-shape mookup-window-shape-minimize" aria-hidden="true" />
-        </WindowButton>
-        <WindowButton
-          label={isMaximized ? 'Restaurer' : 'Agrandir'}
-          onClick={() => window.electronAPI?.toggleMaximizeWindow?.()}
-          windowControl
-        >
-          <span className="mookup-window-shape mookup-window-shape-maximize" aria-hidden="true" />
-        </WindowButton>
-      </div>
+      {isMac && (
+        <div className="electron-titlebar-side electron-titlebar-right" style={noDragStyle}>
+          <span className="electron-titlebar-separator" aria-hidden="true" />
+          <WindowButton
+            label="Fermer"
+            onClick={() => window.electronAPI?.closeWindow?.()}
+            windowControl
+            danger
+          >
+            <span className="mookup-window-shape mookup-window-shape-close" aria-hidden="true" />
+          </WindowButton>
+          <WindowButton
+            label="Réduire"
+            onClick={() => window.electronAPI?.minimizeWindow?.()}
+            windowControl
+          >
+            <span className="mookup-window-shape mookup-window-shape-minimize" aria-hidden="true" />
+          </WindowButton>
+          <WindowButton
+            label={isMaximized ? 'Restaurer' : 'Agrandir'}
+            onClick={() => window.electronAPI?.toggleMaximizeWindow?.()}
+            windowControl
+          >
+            <span className="mookup-window-shape mookup-window-shape-maximize" aria-hidden="true" />
+          </WindowButton>
+        </div>
+      )}
     </header>
   );
 }
