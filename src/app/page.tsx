@@ -19,8 +19,9 @@ import CallHandler from '@/components/CallHandler';
 import BotPage from '@/components/bots/BotPage';
 import ProfilePage from '@/components/profile/ProfilePage';
 import MyProfilePresentation from '@/components/profile/MyProfilePresentation';
+import AppleEmojiText from '@/components/chat/AppleEmojiText';
 import { useState, useEffect, useRef } from 'react';
-import { Eye, EyeSlash, Lock, Envelope, WindowsLogo, User, UserFocus, UsersThree, CaretLeft } from '@phosphor-icons/react';
+import { Eye, EyeSlash, Lock, Envelope, WindowsLogo, User, UserFocus, UsersThree, CaretLeft, X } from '@phosphor-icons/react';
 import type { BotSection } from '@/components/sidebar/BotView';
 import type { ProfileSection } from '@/components/sidebar/ProfileView';
 
@@ -151,17 +152,8 @@ function WelcomePanel() {
   const [showEmoji, setShowEmoji] = useState(false);
   const indexRef = useRef(0);
 
-  // L’effet Acrylic/Mica est réservé à l’application Windows Electron :
-  // le web garde son fond classique et reste performant sur mobile.
-  const [isElectronApp, setIsElectronApp] = useState(false);
+  // Le matériau Acrylic/Mica est partagé par la page web et l’application Electron.
   const [latestWindowsVersion, setLatestWindowsVersion] = useState<string | null>(null);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setIsElectronApp(window.electronAPI?.isElectron === true);
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -205,7 +197,7 @@ function WelcomePanel() {
 
   return (
     <>
-    <div className={`public-welcome-panel hidden md:flex h-full flex-col bg-[#f9f9f9] ${isElectronApp ? 'electron-acrylic-welcome' : ''}`}>
+    <div className="public-welcome-panel acrylic-welcome hidden h-full flex-col bg-[#f9f9f9] md:flex">
       {/* Logo */}
       <div className="flex items-center justify-center gap-2.5 pt-8 pb-2 flex-shrink-0">
         <img src="/Logo.png" alt="Mookup" width={32} height={32} className="block flex-shrink-0" />
@@ -272,7 +264,7 @@ function WelcomePanel() {
           )}
           {showEmoji && (
             <span className="ml-2 inline-block" style={{ animation: 'popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
-              {emoji}
+              <AppleEmojiText text={emoji} large={false} />
             </span>
           )}
         </p>
@@ -284,6 +276,149 @@ function WelcomePanel() {
     </div>
 
     </>
+  );
+}
+
+type AboutCheckState = 'checking' | 'current' | 'update' | 'error';
+
+type VersionManifest = {
+  nativeVersion?: string;
+  version?: string;
+};
+
+function AboutMookupModal({ info, onClose }: { info: ElectronAppInfo | null; onClose: () => void }) {
+  const [checkState, setCheckState] = useState<AboutCheckState>('checking');
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!info?.version) return;
+
+    let active = true;
+    setCheckState('checking');
+    setLatestVersion(null);
+
+    const checkLatestVersion = async () => {
+      try {
+        const response = await fetch(`/version.json?check=${Date.now()}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error('Version indisponible');
+
+        const manifest = await response.json() as VersionManifest;
+        const remoteVersion = manifest.nativeVersion?.trim() || null;
+        if (!active) return;
+
+        setLatestVersion(remoteVersion);
+        if (!remoteVersion) {
+          setCheckState('error');
+        } else {
+          setCheckState(info.version.trim() === remoteVersion ? 'current' : 'update');
+        }
+      } catch {
+        if (active) setCheckState('error');
+      }
+    };
+
+    void checkLatestVersion();
+    return () => {
+      active = false;
+    };
+  }, [info?.version]);
+
+  const statusContent = {
+    checking: {
+      label: 'Recherche des mises à jour…',
+      detail: 'Vérification de la dernière version disponible',
+      className: 'text-gray-600',
+    },
+    current: {
+      label: 'Application à jour',
+      detail: 'Vous utilisez la dernière version de Mookup.',
+      className: 'text-emerald-600',
+    },
+    update: {
+      label: 'Mise à jour disponible',
+      detail: latestVersion ? `La version ${latestVersion} est disponible.` : 'Une nouvelle version est disponible.',
+      className: 'text-amber-600',
+    },
+    error: {
+      label: 'Vérification impossible',
+      detail: 'La version installée reste disponible, mais le serveur n’a pas répondu.',
+      className: 'text-gray-500',
+    },
+  }[checkState];
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm"
+      role="presentation"
+      onMouseDown={onClose}
+    >
+      <div
+        className="mookup-about-dialog w-full max-w-[410px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-[0_18px_60px_rgba(0,0,0,0.2)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mookup-about-title"
+        onMouseDown={event => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <img src="/Logo.png" alt="Mookup" className="h-10 w-10 rounded-md object-contain" />
+            <div>
+              <h2 id="mookup-about-title" className="text-[18px] font-semibold tracking-tight text-gray-900">À propos de Mookup</h2>
+              <p className="mt-0.5 text-[12px] text-gray-500">Une messagerie simple, rapide et conviviale.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            aria-label="Fermer la fenêtre À propos de Mookup"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-5 text-[13px] text-gray-600">
+          <div className="flex items-center justify-between border border-gray-100 bg-gray-50 px-3 py-2.5">
+            <span>Version de l’application</span>
+            <span className="font-semibold tabular-nums text-gray-900">{info?.version ?? '—'}</span>
+          </div>
+
+          <div className="border border-gray-100 px-3 py-3" role="status" aria-live="polite">
+            <div className="flex items-center gap-3">
+              {checkState === 'checking' ? (
+                <div className="mookup-version-loader" aria-hidden="true"><span /><span /></div>
+              ) : (
+                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${checkState === 'current' ? 'bg-emerald-500' : checkState === 'update' ? 'bg-amber-500' : 'bg-gray-400'}`} aria-hidden="true" />
+              )}
+              <div className="min-w-0">
+                <p className={`font-semibold ${statusContent.className}`}>{statusContent.label}</p>
+                <p className="mt-0.5 text-[12px] leading-5 text-gray-500">{statusContent.detail}</p>
+              </div>
+            </div>
+          </div>
+
+          <p className="leading-relaxed">Développé avec soin par <strong className="font-semibold text-gray-800">Team Mookup</strong>.</p>
+        </div>
+
+        <div className="flex justify-end border-t border-gray-100 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md bg-[#5046e5] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#4338ca]"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -321,6 +456,8 @@ export default function Home() {
   // Sur mobile : contenu ouvert depuis BotView/ProfileView (null = rien d'ouvert)
   const [mobileContent, setMobileContent] = useState<'bots' | 'profil' | null>(null);
   const [showOwnProfile, setShowOwnProfile] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [aboutInfo, setAboutInfo] = useState<ElectronAppInfo | null>(null);
 
   useEffect(() => {
     const routeState = getAppRouteState(pathname);
@@ -460,6 +597,19 @@ export default function Home() {
     console.log(PUBLIC_CONSOLE_MESSAGE);
     publicConsoleMessageLoggedRef.current = true;
   }, [loading, user]);
+
+  useEffect(() => {
+    const electronAPI = window.electronAPI;
+    if (!electronAPI) return;
+
+    const removeAboutListener = electronAPI.onAboutRequested?.(() => {
+      setShowAboutModal(true);
+      const appInfoPromise = electronAPI.getAppInfo?.();
+      if (appInfoPromise) void appInfoPromise.then(setAboutInfo).catch(() => {});
+    });
+
+    return () => removeAboutListener?.();
+  }, []);
 
   // Relaye les logs du processus principal dans la console des DevTools Chromium.
   // L’historique permet aussi de voir les événements survenus avant le montage React.
@@ -924,6 +1074,7 @@ export default function Home() {
 
   return (
     <div className="app-shell h-[100dvh] flex overflow-hidden bg-white">
+      {showAboutModal && <AboutMookupModal info={aboutInfo} onClose={() => setShowAboutModal(false)} />}
       <CallHandler user={user} />
       <DesktopActivityConsent user={user} />
       <div className={`${(selectedChat || mobileContent) ? 'hidden md:flex' : 'flex'} w-full md:w-[380px] md:min-w-[380px] border-r border-gray-200 flex-col`}>

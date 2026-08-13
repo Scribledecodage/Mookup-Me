@@ -32,6 +32,7 @@ import CodeBlock from './CodeBlock';
 import UserAvatar from '@/components/ui/UserAvatar';
 import { speakLocalSpeech, splitSpeechSentences } from '@/lib/localSpeech';
 import SpeechHighlightedText from '@/components/SpeechHighlightedText';
+import AppleEmojiText, { isOnlyAppleEmoji } from './AppleEmojiText';
 import { extractColors, toHex } from '@/lib/colorUtils';
 import { Message } from './types';
 
@@ -836,7 +837,7 @@ export default function MessageItem({
             title={label}
             aria-label={`Réagir avec ${label}`}
           >
-            {emoji}
+            <AppleEmojiText text={emoji} large={false} />
           </button>
         ))}
         <button
@@ -923,7 +924,7 @@ export default function MessageItem({
                   title={label}
                   aria-label={`Réagir avec ${label}`}
                 >
-                  {emoji}
+                  <AppleEmojiText text={emoji} large={false} />
                 </button>
               ))}
             </div>
@@ -1446,14 +1447,19 @@ export default function MessageItem({
                         {parts.map((part, i) =>
                           /^@bddbot$/i.test(part)
                             ? <span key={i} className="font-medium text-blue-500">{part}</span>
-                            : part
+                            : <AppleEmojiText key={i} text={part} />
                         )}
                       </p>
                     );
                   }
+                  const renderedChildren = typeof children === 'string'
+                    ? activeSpeechSentence && readingWord
+                      ? <SpeechHighlightedText activeSentence={activeSpeechSentence} activeWord={readingWord} activeWordIndex={readingWordIndex}>{children}</SpeechHighlightedText>
+                      : <AppleEmojiText text={children} emojiOnly={isOnlyAppleEmoji(children)} />
+                    : children;
                   return (
                     <p className={msg.edited ? 'inline mb-1 last:mb-0' : 'mb-1 last:mb-0'}>
-                      <SpeechHighlightedText activeSentence={activeSpeechSentence} activeWord={readingWord} activeWordIndex={readingWordIndex}>{children}</SpeechHighlightedText>
+                      {renderedChildren}
                     </p>
                   );
                 },
@@ -1510,7 +1516,7 @@ export default function MessageItem({
                     title={isSelected ? 'Retirer ma réaction' : 'Réagir avec cette réaction'}
                     aria-label={`${emoji}, ${count} réaction${count > 1 ? 's' : ''}${isSelected ? ' — retirer ma réaction' : ''}`}
                   >
-                    <span aria-hidden="true">{emoji}</span>
+                    <span aria-hidden="true"><AppleEmojiText text={emoji} large={false} /></span>
                     <span className="text-[13px] font-medium">{count}</span>
                   </button>
                 );

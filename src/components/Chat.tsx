@@ -645,10 +645,10 @@ export default function Chat({
       window.addEventListener('keyboardWillHide', () => { if (scrollRef.current) scrollRef.current.style.marginBottom = '0px'; });
     }
 
-    // Charge le son via un Blob pour éviter les erreurs de cache Chromium sur les MP3 statiques.
+    // Charge le son personnalisé via un Blob pour éviter les erreurs de cache Chromium.
     const notificationAudio = new Audio();
     notificationAudio.preload = 'auto';
-    fetch('/sounds/notification.mp3', { cache: 'no-store' })
+    fetch('/Sons.mp3', { cache: 'no-store' })
       .then(response => {
         if (!response.ok) throw new Error(`Notification sound returned ${response.status}`);
         return response.blob();
@@ -732,7 +732,7 @@ export default function Chat({
             if (Capacitor.isNativePlatform()) {
               if (notificationPreferencesRef.current.sounds) Haptics.vibrate();
               if (notificationPreferencesRef.current.browser) {
-                LocalNotifications.schedule({ notifications: [{ title: `Message de ${lastMsg.displayName}`, body: lastMsg.text || (lastMsg.audioUrl ? '🎙️ Message vocal' : lastMsg.imageUrl ? '📸 Image' : lastMsg.videoUrl ? '🎥 Vidéo' : 'Message'), id: Date.now(), sound: notificationPreferencesRef.current.sounds ? 'notification.mp3' : undefined }] });
+                LocalNotifications.schedule({ notifications: [{ title: `Message de ${lastMsg.displayName}`, body: lastMsg.text || (lastMsg.audioUrl ? '🎙️ Message vocal' : lastMsg.imageUrl ? '📸 Image' : lastMsg.videoUrl ? '🎥 Vidéo' : 'Message'), id: Date.now(), sound: notificationPreferencesRef.current.sounds ? 'Sons.mp3' : undefined }] });
               }
             } else {
               if (notificationPreferencesRef.current.sounds) audioRef.current?.play().catch(() => {});

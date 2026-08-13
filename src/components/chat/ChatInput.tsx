@@ -1,11 +1,16 @@
 'use client';
 
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { openImageInTab, openMediaInTab } from '@/lib/openImageInTab';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ReplyTo } from './types';
 import { GifPicker, type Gif, type GifCategory, type GifProvider } from 'gif-picker-react';
+import { EmojiStyle, SkinTones, Theme } from 'emoji-picker-react';
+import AppleEmojiText, { hasAppleEmoji } from './AppleEmojiText';
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 import { 
   Brain,
@@ -34,138 +39,6 @@ import {
   FileText,
   X,
 } from '@phosphor-icons/react';
-
-const BASE_EMOJI_CATEGORY_GROUPS = {
-  Smileys: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😎', '🤩', '🥳', '😢', '😭', '😡', '🤔', '😴', '🤗', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '🥱', '😌', '🤓', '🧐', '🤨', '😱', '😨', '😰', '😳', '🤪', '😜', '😝', '🤤', '🤑', '🤠', '😈', '👿', '💀', '☠️', '👻', '👽', '🤖', '💩', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'],
-  Gestes: ['👍', '👎', '👏', '🙌', '🤝', '🙏', '💪', '🤞', '✌️', '🤟', '👋', '🫶', '👀', '💅', '🫡', '👌', '🤘', '👊', '✍️', '☝️', '✋', '🤚', '🖐️', '🖖', '🤏', '👈', '👉', '👆', '👇', '☝️', '✊', '🤲', '🙇', '💃', '🕺', '🧘', '🏃', '🚶'],
-  Cœurs: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '💌', '💋', '💯', '💥', '💫', '💦', '💨'],
-  Objets: ['🔥', '⭐', '✨', '🎉', '🎊', '🎁', '🎈', '🚀', '💡', '✅', '❌', '⚡', '☀️', '🌈', '🍕', '🍔', '🍟', '🍎', '☕', '🍺', '🍻', '🍷', '🍰', '🎂', '🎵', '🎶', '⚽', '🏀', '🏆', '🎮', '📱', '💻', '📸', '💰', '🎓', '✈️', '🚗', '🏠', '🌍', '🐶', '🐱', '🦊', '🐼', '🦄', '🐸', '🌸', '🌺', '🌻', '🌹', '🌙', '☁️'],
-} as const;
-
-const normalizeEmoji = (emoji: string) => emoji.replace(/\uFE0F/g, '');
-
-const createUnicodeEmojiList = () => {
-  const emojis: string[] = [];
-  const emojiPattern = /\p{Emoji}/u;
-  const emojiPresentationPattern = /\p{Emoji_Presentation}/u;
-
-  for (let codePoint = 0x20; codePoint <= 0x1faff; codePoint += 1) {
-    const isAsciiSymbol = (codePoint >= 0x30 && codePoint <= 0x39) || codePoint === 0x23 || codePoint === 0x2a;
-    const isRegionalIndicator = codePoint >= 0x1f1e6 && codePoint <= 0x1f1ff;
-    const isSkinTone = codePoint >= 0x1f3fb && codePoint <= 0x1f3ff;
-    if (isAsciiSymbol || isRegionalIndicator || isSkinTone) continue;
-
-    const emoji = String.fromCodePoint(codePoint);
-    if (emojiPattern.test(emoji)) {
-      emojis.push(emojiPresentationPattern.test(emoji) ? emoji : `${emoji}\uFE0F`);
-    }
-  }
-
-  const regionalIndicators = Array.from({ length: 26 }, (_, index) => String.fromCodePoint(0x1f1e6 + index));
-  for (const first of regionalIndicators) {
-    for (const second of regionalIndicators) emojis.push(`${first}${second}`);
-  }
-
-  const skinTones = ['🏻', '🏼', '🏽', '🏾', '🏿'];
-  const skinToneBaseRanges: [number, number][] = [
-    [0x1f385, 0x1f385], [0x1f3c2, 0x1f3c4], [0x1f3c7, 0x1f3c7], [0x1f3ca, 0x1f3cc],
-    [0x1f442, 0x1f443], [0x1f446, 0x1f450], [0x1f466, 0x1f478], [0x1f47c, 0x1f47c],
-    [0x1f481, 0x1f483], [0x1f485, 0x1f487], [0x1f48f, 0x1f491], [0x1f4aa, 0x1f4aa],
-    [0x1f574, 0x1f575], [0x1f57a, 0x1f57a], [0x1f590, 0x1f590], [0x1f595, 0x1f596],
-    [0x1f645, 0x1f647], [0x1f64b, 0x1f64f], [0x1f6a3, 0x1f6a3], [0x1f6b4, 0x1f6b6],
-    [0x1f6c0, 0x1f6c0], [0x1f6cc, 0x1f6cc], [0x1f90c, 0x1f90c], [0x1f90f, 0x1f90f],
-    [0x1f918, 0x1f91f], [0x1f926, 0x1f926], [0x1f930, 0x1f939], [0x1f93c, 0x1f93e],
-    [0x1f977, 0x1f977], [0x1f9b5, 0x1f9b6], [0x1f9b8, 0x1f9b9], [0x1f9bb, 0x1f9bd],
-    [0x1f9cd, 0x1f9cf], [0x1f9d1, 0x1f9dd], [0x1fac3, 0x1fac5],
-  ];
-  for (const [start, end] of skinToneBaseRanges) {
-    for (let codePoint = start; codePoint <= end; codePoint += 1) {
-      const base = String.fromCodePoint(codePoint);
-      if (emojiPattern.test(base)) {
-        for (const skinTone of skinTones) emojis.push(`${base}${skinTone}`);
-      }
-    }
-  }
-
-  emojis.push(...['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '#️⃣', '*️⃣']);
-  return Array.from(new Set(emojis));
-};
-
-const UNICODE_EMOJIS = createUnicodeEmojiList();
-const CURATED_EMOJIS = new Set<string>(Object.values(BASE_EMOJI_CATEGORY_GROUPS).flat().map(normalizeEmoji));
-type GeneratedEmojiGroup =
-  | 'Smileys'
-  | 'Gestes'
-  | 'Cœurs'
-  | 'Objets'
-  | 'Animaux & nature'
-  | 'Nourriture'
-  | 'Activités'
-  | 'Voyages & lieux'
-  | 'Personnes & objets'
-  | 'Symboles Unicode'
-  | 'Drapeaux'
-  | 'Autres reconnus';
-
-const generatedEmojiGroups: Record<GeneratedEmojiGroup, string[]> = {
-  Smileys: [],
-  Gestes: [],
-  'Cœurs': [],
-  Objets: [],
-  'Animaux & nature': [],
-  Nourriture: [],
-  Activités: [],
-  'Voyages & lieux': [],
-  'Personnes & objets': [],
-  'Symboles Unicode': [],
-  Drapeaux: [],
-  'Autres reconnus': [],
-};
-
-const classifyUnicodeEmoji = (emoji: string): GeneratedEmojiGroup => {
-  const firstCodePoint = emoji.codePointAt(0) || 0;
-  const isFlag = emoji.length === 4 && firstCodePoint >= 0x1f1e6 && firstCodePoint <= 0x1f1ff;
-  if (isFlag) return 'Drapeaux';
-  if (firstCodePoint >= 0x1f600 && firstCodePoint <= 0x1f64f) return 'Smileys';
-  if (firstCodePoint >= 0x1f440 && firstCodePoint <= 0x1f46f) return 'Gestes';
-  if (firstCodePoint >= 0x1f48b && firstCodePoint <= 0x1f49f) return 'Cœurs';
-  if (firstCodePoint >= 0x1f4a0 && firstCodePoint <= 0x1f4ff) return 'Objets';
-  if (firstCodePoint >= 0x1f32d && firstCodePoint <= 0x1f37f) return 'Nourriture';
-  if (firstCodePoint >= 0x1f380 && firstCodePoint <= 0x1f3ff) return 'Activités';
-  if (firstCodePoint >= 0x1f400 && firstCodePoint <= 0x1f43f) return 'Animaux & nature';
-  if (firstCodePoint >= 0x1f300 && firstCodePoint <= 0x1f31f) return 'Animaux & nature';
-  if (firstCodePoint >= 0x1f680 && firstCodePoint <= 0x1f6ff) return 'Voyages & lieux';
-  if (firstCodePoint >= 0x1f500 && firstCodePoint <= 0x1f5ff) return 'Symboles Unicode';
-  if (firstCodePoint >= 0x1f440 && firstCodePoint <= 0x1faff) return 'Personnes & objets';
-  if (firstCodePoint >= 0x2300 && firstCodePoint <= 0x27ff) return 'Symboles Unicode';
-  return 'Autres reconnus';
-};
-
-for (const emoji of UNICODE_EMOJIS) {
-  if (!CURATED_EMOJIS.has(normalizeEmoji(emoji))) generatedEmojiGroups[classifyUnicodeEmoji(emoji)].push(emoji);
-}
-
-const EMOJI_CATEGORY_GROUPS = {
-  Smileys: [...BASE_EMOJI_CATEGORY_GROUPS.Smileys, ...generatedEmojiGroups.Smileys],
-  Gestes: [...BASE_EMOJI_CATEGORY_GROUPS.Gestes, ...generatedEmojiGroups.Gestes],
-  Cœurs: [...BASE_EMOJI_CATEGORY_GROUPS.Cœurs, ...generatedEmojiGroups.Cœurs],
-  Objets: [...BASE_EMOJI_CATEGORY_GROUPS.Objets, ...generatedEmojiGroups.Objets],
-  'Animaux & nature': generatedEmojiGroups['Animaux & nature'],
-  Nourriture: generatedEmojiGroups.Nourriture,
-  Activités: generatedEmojiGroups.Activités,
-  'Voyages & lieux': generatedEmojiGroups['Voyages & lieux'],
-  'Personnes & objets': generatedEmojiGroups['Personnes & objets'],
-  'Symboles Unicode': generatedEmojiGroups['Symboles Unicode'],
-  Drapeaux: generatedEmojiGroups.Drapeaux,
-  'Autres reconnus': generatedEmojiGroups['Autres reconnus'],
-} as const;
-
-const EMOJI_CATEGORIES = {
-  Tous: Array.from(new Set(Object.values(EMOJI_CATEGORY_GROUPS).flat())),
-  ...EMOJI_CATEGORY_GROUPS,
-} as const;
-
-type EmojiCategory = keyof typeof EMOJI_CATEGORIES;
 
 type MediaCategory = { name: string; searchTerm: string };
 
@@ -372,9 +245,7 @@ export default function ChatInput({
   installedBotIds = [],
 }: ChatInputProps) {
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
-  const [emojiCategory, setEmojiCategory] = React.useState<EmojiCategory>('Tous');
-  const [emojiActiveCategory, setEmojiActiveCategory] = React.useState<EmojiCategory>('Tous');
-  const [emojiSearch, setEmojiSearch] = React.useState('');
+  const [emojiSkinTone, setEmojiSkinTone] = React.useState(SkinTones.NEUTRAL);
   const [showGifPicker, setShowGifPicker] = React.useState(false);
   const [showStickerPicker, setShowStickerPicker] = React.useState(false);
   const [showBotsPicker, setShowBotsPicker] = React.useState(false);
@@ -382,8 +253,6 @@ export default function ChatInput({
   const [customBots, setCustomBots] = React.useState<BotDirectoryItem[]>([]);
   const emojiPickerRef = React.useRef<HTMLDivElement>(null);
   const botsPickerRef = React.useRef<HTMLDivElement>(null);
-  const emojiGridRef = React.useRef<HTMLDivElement>(null);
-  const emojiSectionRefs = React.useRef<Record<string, HTMLElement | null>>({});
   const gifPickerRef = React.useRef<HTMLDivElement>(null);
   const stickerPickerRef = React.useRef<HTMLDivElement>(null);
   const [gifPickerVersion, setGifPickerVersion] = React.useState(0);
@@ -413,6 +282,8 @@ export default function ChatInput({
   const gifResultsCache = React.useRef(new Map<string, { items: Gif[]; nextPage: number; hasNext: boolean }>());
   const stickerResultsCache = React.useRef(new Map<string, { items: Gif[]; nextPage: number; hasNext: boolean }>());
   const availableBots = [BOT_DIRECTORY[0], ...customBots];
+  const hasBotMention = /^@bddbot\b/i.test(newMessage);
+  const showAppleEmojiPreview = !isVoiceMode && !hasBotMention && hasAppleEmoji(newMessage);
   const getBotMention = (item: BotDirectoryItem) => item.slug || item.name.toLowerCase().replace(/\s+/g, '');
   const selectBot = (item: BotDirectoryItem) => {
     if (item.id && !installedBotIds.includes(item.id)) {
@@ -471,53 +342,6 @@ export default function ChatInput({
   const handleEmojiSelect = (emoji: string) => {
     setNewMessage(`${newMessage}${emoji}`);
   };
-
-  const normalizedEmojiSearch = emojiSearch.trim().toLocaleLowerCase();
-  const visibleEmojis = (emojiSearch.trim()
-    ? Object.entries(EMOJI_CATEGORY_GROUPS).flatMap(([category, emojis]) => emojis.map(emoji => ({ emoji, category })))
-    : EMOJI_CATEGORIES[emojiCategory].map(emoji => ({ emoji, category: emojiCategory }))
-  ).filter(({ emoji, category }) => (
-    normalizedEmojiSearch === '' ||
-    emoji.includes(emojiSearch.trim()) ||
-    category.toLocaleLowerCase().includes(normalizedEmojiSearch)
-  ));
-
-  const handleEmojiCategoryClick = (category: EmojiCategory) => {
-    setEmojiCategory(category);
-    setEmojiActiveCategory(category);
-    if (category === 'Tous') {
-      requestAnimationFrame(() => emojiGridRef.current?.scrollTo({ top: 0, behavior: 'smooth' }));
-    }
-  };
-
-  const handleEmojiGridScroll = (event: React.UIEvent<HTMLDivElement>) => {
-    if (emojiCategory !== 'Tous' || emojiSearch.trim()) return;
-    const grid = event.currentTarget;
-    if (grid.scrollTop < 12) {
-      setEmojiActiveCategory('Tous');
-      return;
-    }
-
-    const threshold = grid.scrollTop + 24;
-    let activeCategory: EmojiCategory = 'Tous';
-    (Object.keys(EMOJI_CATEGORY_GROUPS) as Exclude<EmojiCategory, 'Tous'>[]).forEach(category => {
-      const section = emojiSectionRefs.current[category];
-      if (section && section.offsetTop <= threshold) activeCategory = category;
-    });
-    setEmojiActiveCategory(activeCategory);
-  };
-
-  const renderEmojiButton = (emoji: string, category: string, index: number) => (
-    <button
-      key={`${emoji}-${category}-${index}`}
-      type="button"
-      onClick={() => handleEmojiSelect(emoji)}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-[24px] transition-colors hover:bg-gray-100 sm:h-10 sm:w-10 sm:text-[26px]"
-      aria-label={`Ajouter ${emoji}`}
-    >
-      {emoji}
-    </button>
-  );
 
   const fetchGifPage = React.useCallback(async (query: string, page = 1, limit = 24): Promise<{ items: Gif[]; hasNext: boolean }> => {
     const response = await fetch(`/api/gifs?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`);
@@ -938,11 +762,13 @@ export default function ChatInput({
         </div>
       )}
       {groupId === 'snapchat' ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
-          <img src="/Logo.png" alt="Logo Mookup" className="h-10 w-10 flex-shrink-0 rounded-xl object-contain" />
-          <div className="min-w-0">
-            <p className="text-[14px] font-semibold text-gray-800">Bienvenue sur Team Mookup</p>
-            <p className="mt-0.5 text-[12px] leading-5 text-gray-500">Cet espace est réservé aux annonces et aux informations de Mookup. L’envoi de messages est désactivé.</p>
+        <div className="team-announcement-banner flex items-center gap-3 rounded-lg px-4 py-3">
+          <div className="team-announcement-avatar flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full">
+            <img src="/Logo.png" alt="Logo Mookup" className="h-full w-full rounded-full object-contain" />
+          </div>
+          <div className="relative z-[1] min-w-0">
+            <p className="team-announcement-title text-[14px] font-semibold tracking-[-0.01em]">Bienvenue sur Team Mookup</p>
+            <p className="team-announcement-description mt-0.5 text-[12px] leading-5">Cet espace est réservé aux annonces et aux informations de Mookup. L’envoi de messages est désactivé.</p>
           </div>
         </div>
       ) : (
@@ -1105,15 +931,20 @@ export default function ChatInput({
                 onPaste={handlePaste}
                 placeholder={`Envoyer un message dans # | ${displayName}`}
                 className={`w-full py-2 bg-transparent border-none outline-none text-[15px] placeholder-[#87888c] caret-[#060607] ${
-                  /^@bddbot\b/i.test(newMessage) ? 'text-transparent' : 'text-[#060607]'
+                  hasBotMention || showAppleEmojiPreview ? 'text-transparent' : 'text-[#060607]'
                 }`}
               />
               )}
               {/* Seul @bddbot est bleu ; le reste du message garde son style normal. */}
-              {!isVoiceMode && /^@bddbot\b/i.test(newMessage) && (
+              {!isVoiceMode && hasBotMention && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none text-[15px]">
                   <span className="font-medium text-blue-600">{newMessage.slice(0, 7)}</span>
                   <span className="text-[#060607]">{newMessage.substring(7)}</span>
+                </div>
+              )}
+              {showAppleEmojiPreview && (
+                <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 truncate whitespace-pre text-[15px] text-[#060607]">
+                  <AppleEmojiText text={newMessage} large={false} />
                 </div>
               )}
             </div>
@@ -1223,69 +1054,19 @@ export default function ChatInput({
 
               <div ref={emojiPickerRef} className="relative">
                 {showEmojiPicker && (
-                  <div className="fixed inset-x-2 top-2 bottom-20 z-50 flex min-h-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white p-3 shadow-[0_8px_28px_rgba(0,0,0,0.18)] sm:absolute sm:inset-x-auto sm:top-auto sm:bottom-[calc(100%+0.5rem)] sm:right-0 sm:h-auto sm:max-h-none sm:w-[min(520px,calc(100vw-2rem))] sm:rounded-2xl sm:p-4">
-                    <div className="mb-2 flex shrink-0 items-center justify-between border-b border-gray-100 pb-2">
-                      <span className="text-[14px] font-semibold text-gray-700">Emojis</span>
-                      <button
-                        type="button"
-                        onClick={() => setShowEmojiPicker(false)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100"
-                        title="Fermer"
-                        aria-label="Fermer le sélecteur d’emojis"
-                      >
-                        <X size={17} weight="bold" />
-                      </button>
-                    </div>
-                    <input
-                      type="search"
-                      value={emojiSearch}
-                      onChange={(event) => setEmojiSearch(event.target.value)}
-                      placeholder="Rechercher un emoji"
-                      className="mb-2 w-full shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] outline-none focus:border-blue-500"
-                      aria-label="Rechercher un emoji"
+                  <div className="mookup-emoji-popover fixed inset-x-2 top-2 bottom-20 z-50 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-[0_8px_28px_rgba(0,0,0,0.18)] sm:absolute sm:inset-x-auto sm:top-auto sm:bottom-[calc(100%+0.5rem)] sm:right-0 sm:h-[450px] sm:w-[350px] sm:rounded-2xl">
+                    <EmojiPicker
+                      onEmojiClick={(emojiData) => handleEmojiSelect(emojiData.emoji)}
+                      emojiStyle={EmojiStyle.APPLE}
+                      theme={Theme.AUTO}
+                      defaultSkinTone={emojiSkinTone}
+                      onSkinToneChange={setEmojiSkinTone}
+                      lazyLoadEmojis
+                      width="100%"
+                      height="100%"
+                      searchPlaceholder="Rechercher un emoji"
+                      previewConfig={{ showPreview: false }}
                     />
-                    <div className="mb-2 max-h-20 shrink-0 overflow-y-auto border-b border-gray-100 pb-2 sm:max-h-none"> 
-                      <div className="flex flex-wrap gap-1">
-                      {(Object.keys(EMOJI_CATEGORIES) as EmojiCategory[]).map(category => (
-                        <button
-                          key={category}
-                          type="button"
-                          onClick={() => handleEmojiCategoryClick(category)}
-                          className={`rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors ${emojiActiveCategory === category ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}`}
-                        >
-                          {category}
-                        </button>
-                      ))}
-                      </div>
-                    </div>
-                    <div
-                      ref={emojiGridRef}
-                      onScroll={handleEmojiGridScroll}
-                      className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1 sm:max-h-80 sm:flex-none"
-                    >
-                      {emojiCategory === 'Tous' && !emojiSearch.trim() ? (
-                        (Object.entries(EMOJI_CATEGORY_GROUPS) as [Exclude<EmojiCategory, 'Tous'>, readonly string[]][]).map(([category, emojis]) => (
-                          <section
-                            key={category}
-                            ref={section => { emojiSectionRefs.current[category] = section; }}
-                            className="mb-3 last:mb-0"
-                          >
-                            <h3 className="sticky top-0 z-10 mb-1 bg-white/95 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                              {category}
-                            </h3>
-                            <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-8">
-                              {emojis.map((emoji, index) => renderEmojiButton(emoji, category, index))}
-                            </div>
-                          </section>
-                        ))
-                      ) : visibleEmojis.length > 0 ? (
-                        <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-8">
-                          {visibleEmojis.map(({ emoji, category }, index) => renderEmojiButton(emoji, category, index))}
-                        </div>
-                      ) : (
-                        <p className="py-5 text-center text-xs text-gray-500">Aucun emoji trouvé</p>
-                      )}
-                    </div>
                   </div>
                 )}
                 <button

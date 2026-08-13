@@ -8,6 +8,7 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Copy, Check } from '@phosphor-icons/react';
 import SpeechHighlightedText from '@/components/SpeechHighlightedText';
+import { AppleEmojiNodes } from '@/components/chat/AppleEmojiText';
 
 const LANG_ICONS: Record<string, string> = {
   python:     'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg',
@@ -118,24 +119,26 @@ export default function BotMessage({ text, activeSpeechSentence = null, activeSp
           // Paragraphes
           p: ({ children }) => (
             <p className="bot-message-paragraph block w-full mb-1.5 last:mb-0 text-gray-800">
-              <SpeechHighlightedText activeSentence={activeSpeechSentence} activeWord={activeSpeechWord} activeWordIndex={activeSpeechWordIndex}>{children}</SpeechHighlightedText>
+              {activeSpeechSentence && activeSpeechWord
+                ? <SpeechHighlightedText activeSentence={activeSpeechSentence} activeWord={activeSpeechWord} activeWordIndex={activeSpeechWordIndex}>{children}</SpeechHighlightedText>
+                : <AppleEmojiNodes>{children}</AppleEmojiNodes>}
             </p>
           ),
 
           // Titres
           h1: ({ children }) => (
             <h1 className="bot-message-heading text-[18px] font-semibold text-gray-900 mt-3 mb-1.5 border-b border-gray-200 pb-1">
-              {children}
+              <AppleEmojiNodes>{children}</AppleEmojiNodes>
             </h1>
           ),
           h2: ({ children }) => (
             <h2 className="bot-message-heading text-[16px] font-semibold text-gray-900 mt-2.5 mb-1">
-              {children}
+              <AppleEmojiNodes>{children}</AppleEmojiNodes>
             </h2>
           ),
           h3: ({ children }) => (
             <h3 className="bot-message-heading text-[14px] font-semibold text-gray-700 mt-2 mb-0.5">
-              {children}
+              <AppleEmojiNodes>{children}</AppleEmojiNodes>
             </h3>
           ),
 
@@ -149,14 +152,14 @@ export default function BotMessage({ text, activeSpeechSentence = null, activeSp
           li: ({ children }) => (
             <li className="bot-message-list-item flex items-start gap-2 text-gray-800">
               <span className="mt-[9px] w-1 h-1 rounded-full bg-gray-400 flex-shrink-0" />
-              <span>{children}</span>
+              <span><AppleEmojiNodes>{children}</AppleEmojiNodes></span>
             </li>
           ),
 
           // Blockquote
           blockquote: ({ children }) => (
             <blockquote className="border-l-2 border-gray-300 pl-3 py-0.5 my-1.5 text-gray-500 text-[14px] italic">
-              {children}
+              <AppleEmojiNodes>{children}</AppleEmojiNodes>
             </blockquote>
           ),
 
@@ -167,10 +170,10 @@ export default function BotMessage({ text, activeSpeechSentence = null, activeSp
 
           // Gras / italique
           strong: ({ children }) => (
-            <strong className="font-semibold text-gray-900">{children}</strong>
+            <strong className="font-semibold text-gray-900"><AppleEmojiNodes>{children}</AppleEmojiNodes></strong>
           ),
           em: ({ children }) => (
-            <em className="italic text-gray-600">{children}</em>
+            <em className="italic text-gray-600"><AppleEmojiNodes>{children}</AppleEmojiNodes></em>
           ),
 
           // Lien
@@ -181,7 +184,7 @@ export default function BotMessage({ text, activeSpeechSentence = null, activeSp
               rel="noopener noreferrer"
               className="text-blue-500 hover:underline break-all"
             >
-              {children}
+              <AppleEmojiNodes>{children}</AppleEmojiNodes>
             </a>
           ),
 
@@ -196,12 +199,12 @@ export default function BotMessage({ text, activeSpeechSentence = null, activeSp
           ),
           th: ({ children }) => (
             <th className="px-3 py-2 text-left text-[12px] font-semibold text-gray-600 border-r border-gray-200 last:border-r-0">
-              {children}
+              <AppleEmojiNodes>{children}</AppleEmojiNodes>
             </th>
           ),
           td: ({ children }) => (
             <td className="px-3 py-2 text-gray-700 border-t border-gray-100 border-r border-gray-100 last:border-r-0">
-              {children}
+              <AppleEmojiNodes>{children}</AppleEmojiNodes>
             </td>
           ),
           tr: ({ children }) => (

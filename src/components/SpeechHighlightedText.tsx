@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import AppleEmojiText from '@/components/chat/AppleEmojiText';
 
 interface SpeechHighlightedTextProps {
   children: ReactNode;
@@ -61,11 +62,11 @@ export default function SpeechHighlightedText({ children, activeSentence, active
 
   return (
     <>
-      {children.slice(0, match.start)}
+      <AppleEmojiText text={children.slice(0, match.start)} />
       <mark className="rounded bg-gray-300/80 px-0.5 text-inherit shadow-[0_0_0_2px_rgba(209,213,219,0.45)] transition-colors duration-150" aria-current="true">
-        {children.slice(match.start, match.end)}
+        <AppleEmojiText text={children.slice(match.start, match.end)} />
       </mark>
-      {children.slice(match.end)}
+      <AppleEmojiText text={children.slice(match.end)} />
     </>
   );
 }

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, Menu, session, shell, ipcMain, nativeImage, screen, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Menu, session, shell, ipcMain, nativeImage, screen, desktopCapturer } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -78,6 +78,26 @@ let recentContacts = [];
 const MAX_UPDATE_DEBUG_HISTORY = 200;
 
 ipcMain.handle('electron-update-debug-history', () => updateDebugHistory);
+
+function getMookupAppVersion() {
+  try {
+    const packagePath = path.join(app.getAppPath(), 'package.json');
+    const packageData = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    if (typeof packageData.version === 'string' && packageData.version.trim()) {
+      return packageData.version.trim();
+    }
+  } catch {
+    // Utiliser la version Electron uniquement comme solution de secours technique.
+  }
+  return app.getVersion();
+}
+
+ipcMain.handle('electron-app-info', () => ({
+  version: getMookupAppVersion(),
+  electronVersion: process.versions.electron,
+  platform: process.platform,
+  arch: process.arch,
+}));
 
 ipcMain.handle('electron-system-activity-current', () => currentSystemActivity);
 
@@ -654,26 +674,6 @@ function configureAutoUpdater() {
   updateCheckTimer = setInterval(() => void checkForUpdates(), UPDATE_CHECK_INTERVAL_MS);
 }
 
-function showAboutDialog() {
-  const parentWindow = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
-  const appName = app.getName() || 'Mookup';
-  const version = app.getVersion();
-
-  void dialog.showMessageBox(parentWindow, {
-    type: 'info',
-    title: `À propos de ${appName}`,
-    message: appName,
-    detail: [
-      `Version : ${version}`,
-      'Développé par : Team Mookup',
-      'Application Electron de messagerie',
-      `Electron : ${process.versions.electron}`,
-      `Plateforme : ${process.platform} ${process.arch}`,
-    ].join('\\n'),
-    buttons: ['OK'],
-  });
-}
-
 async function cacheContactIcon(contact, index) {
   if (!contact?.photoURL || typeof contact.photoURL !== 'string') return null;
 
@@ -813,7 +813,11 @@ function configureApplicationMenu() {
       submenu: [
         {
           label: 'À propos de Mookup',
-          click: () => showAboutDialog(),
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('electron-about-requested');
+            }
+          },
         },
         {
           label: 'Ouvrir le journal des mises à jour',

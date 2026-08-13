@@ -29,12 +29,20 @@ interface ElectronSystemActivityDebugEntry {
   details?: Record<string, unknown>;
 }
 
+interface ElectronAppInfo {
+  version: string;
+  electronVersion: string;
+  platform: string;
+  arch: string;
+}
+
 interface Window {
   /** Positionné à true par le bridge Electron quand l'application est empaquetée. */
   electronAPI?: {
     isElectron: boolean;
     platform: string;
     electronVersion: string;
+    getAppInfo?: () => Promise<ElectronAppInfo>;
     getUpdateDebugHistory?: () => Promise<ElectronUpdateDebugEntry[]>;
     getSystemActivity?: () => Promise<ElectronSystemActivity | null>;
     approveSystemActivity?: (appId: string) => void;
@@ -46,6 +54,7 @@ interface Window {
     onSystemActivityDismissed?: (listener: (activity: { appId: string }) => void) => () => void;
     setRecentContacts?: (contacts: Array<{ chatId: string; uid: string; displayName: string; photoURL?: string | null; isBot: boolean }>) => void;
     onUpdateStatus?: (listener: (status: ElectronUpdateStatus) => void) => () => void;
+    onAboutRequested?: (listener: () => void) => () => void;
     onUpdateDebug?: (listener: (entry: ElectronUpdateDebugEntry) => void) => () => void;
   };
   /** Positionné à true par un gestionnaire interne quand il intercepte l'event app_back. */

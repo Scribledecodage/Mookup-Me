@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
   platform: process.platform,
   electronVersion: process.versions.electron,
+  getAppInfo: () => ipcRenderer.invoke('electron-app-info'),
   getUpdateDebugHistory: () => ipcRenderer.invoke('electron-update-debug-history'),
   getSystemActivity: () => ipcRenderer.invoke('electron-system-activity-current'),
   approveSystemActivity: (appId) => {
@@ -55,6 +56,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_event, status) => listener(status);
     ipcRenderer.on('electron-update-status', handler);
     return () => ipcRenderer.removeListener('electron-update-status', handler);
+  },
+  onAboutRequested: (listener) => {
+    if (typeof listener !== 'function') return () => {};
+
+    const handler = () => listener();
+    ipcRenderer.on('electron-about-requested', handler);
+    return () => ipcRenderer.removeListener('electron-about-requested', handler);
   },
   onUpdateDebug: (listener) => {
     if (typeof listener !== 'function') return () => {};
