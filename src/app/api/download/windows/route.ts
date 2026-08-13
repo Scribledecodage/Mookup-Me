@@ -4,50 +4,48 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const REPOSITORY = 'Scribledecodage/Mookup-Me';
+const RELEASE_METADATA_URL = `https://github.com/${REPOSITORY}/releases/latest/download/latest.yml`;
 const GITHUB_HEADERS = {
-  Accept: 'application/vnd.github+json',
   'User-Agent': 'Mookup-Website',
 };
 
-type GithubAsset = {
-  name?: string;
+type WindowsReleaseAsset = {
+  version: string;
+  name: string;
   size?: number;
-  browser_download_url?: string;
+  url: string;
 };
 
-type GithubRelease = {
-  tag_name?: string;
-  name?: string;
-  assets?: GithubAsset[];
-};
+function parseLatestWindowsMetadata(metadata: string): WindowsReleaseAsset {
+  const version = metadata.match(/^version:\s*([^\s]+)\s*$/m)?.[1];
+  const name = metadata.match(/^\s+-\s+url:\s*([^\s]+)\s*$/m)?.[1];
+  const sizeValue = metadata.match(/^\s+size:\s*(\d+)\s*$/m)?.[1];
 
-async function getLatestWindowsAsset() {
-  const releaseResponse = await fetch(`https://api.github.com/repos/${REPOSITORY}/releases/latest`, {
+  if (!version || !name || !/^Mookup-Setup-.+\.exe$/i.test(name)) {
+    throw new Error('Le latest.yml ne contient aucun installeur Windows valide.');
+  }
+
+  return {
+    version,
+    name,
+    size: sizeValue ? Number(sizeValue) : undefined,
+    url: `https://github.com/${REPOSITORY}/releases/latest/download/${encodeURIComponent(name)}`,
+  };
+}
+
+async function getLatestWindowsAsset(): Promise<WindowsReleaseAsset> {
+  // Le fichier latest.yml est public et évite la limite de l’API GitHub
+  // lorsqu’aucun token serveur n’est configuré sur le déploiement web.
+  const metadataResponse = await fetch(RELEASE_METADATA_URL, {
     headers: GITHUB_HEADERS,
     cache: 'no-store',
   });
 
-  if (!releaseResponse.ok) {
-    throw new Error(`GitHub release indisponible (${releaseResponse.status})`);
+  if (!metadataResponse.ok) {
+    throw new Error(`Métadonnées Windows indisponibles (${metadataResponse.status})`);
   }
 
-  const release = (await releaseResponse.json()) as GithubRelease;
-  const asset = release.assets?.find((candidate) => (
-    typeof candidate.name === 'string'
-    && /^Mookup-Setup-.+\.exe$/i.test(candidate.name)
-    && typeof candidate.browser_download_url === 'string'
-  ));
-
-  if (!asset?.name || !asset.browser_download_url) {
-    throw new Error('Aucun installeur Windows n’est disponible dans la dernière release.');
-  }
-
-  return {
-    version: release.tag_name || release.name || 'latest',
-    name: asset.name,
-    size: asset.size,
-    url: asset.browser_download_url,
-  };
+  return parseLatestWindowsMetadata(await metadataResponse.text());
 }
 
 export async function GET(request: Request) {
