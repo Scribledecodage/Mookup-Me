@@ -31,6 +31,18 @@ function copyDependency(packageName) {
 fs.rmSync(stagingDir, { recursive: true, force: true });
 fs.mkdirSync(stagingDir, { recursive: true });
 
+const standaloneDir = path.join(root, '.next', 'standalone');
+const staticDir = path.join(root, '.next', 'static');
+if (!fs.existsSync(path.join(standaloneDir, 'server.js')) || !fs.existsSync(staticDir)) {
+  throw new Error('Le build Next standalone est introuvable. Lancez `npm run electron:prepare`.');
+}
+
+const bundledAppDir = path.join(stagingDir, 'next-app');
+fs.cpSync(standaloneDir, bundledAppDir, { recursive: true });
+fs.cpSync(path.join(root, 'public'), path.join(bundledAppDir, 'public'), { recursive: true });
+fs.mkdirSync(path.join(bundledAppDir, '.next'), { recursive: true });
+fs.cpSync(staticDir, path.join(bundledAppDir, '.next', 'static'), { recursive: true });
+
 fs.cpSync(path.join(root, 'electron', 'main.cjs'), path.join(stagingDir, 'main.cjs'));
 fs.cpSync(path.join(root, 'electron', 'preload.cjs'), path.join(stagingDir, 'preload.cjs'));
 fs.mkdirSync(path.join(stagingDir, 'public'), { recursive: true });

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, session, shell, ipcMain, nativeImage, screen, desktopCapturer } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -9,14 +10,16 @@ const isDevelopment = process.argv.includes('--dev') || !app.isPackaged;
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const UPDATE_INSTALL_DELAY_MS = 5000;
 const SYSTEM_ACTIVITY_POLL_INTERVAL_MS = 3000;
+const BUNDLED_APP_PORT = 3210;
 
 // Le mode dev et le mode production ne doivent pas partager le verrou Electron.
 // Sinon `npm run electron` se ferme silencieusement si `electron:dev` tourne encore.
 app.setPath('userData', path.join(app.getPath('appData'), isDevelopment ? 'Mookup-dev' : 'Mookup'));
 
 const PRODUCTION_URL = process.env.MOOKUP_APP_URL?.trim() || DEFAULT_PRODUCTION_URL;
-const startUrl = process.env.MOOKUP_ELECTRON_URL?.trim()
-  || (isDevelopment ? 'http://localhost:3000' : PRODUCTION_URL);
+const configuredStartUrl = process.env.MOOKUP_ELECTRON_URL?.trim();
+let startUrl = configuredStartUrl
+  || (isDevelopment ? 'http://localhost:3000' : `http://127.0.0.1:${BUNDLED_APP_PORT}`);
 
 const TASK_ROUTES = Object.freeze({
   'send-message': '/accueil',
@@ -53,6 +56,62 @@ function getTaskUrl(action, argv = []) {
   }
   if (!action) return startUrl;
   return new URL(TASK_ROUTES[action], startUrl).toString();
+}
+
+function getBundledNextAppPath() {
+  if (!app.isPackaged) return null;
+  return path.join(process.resourcesPath, 'app.asar.unpacked', 'next-app');
+}
+
+async function waitForLocalApp(url, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(1000) });
+      if (response.status < 500) return true;
+    } catch {
+      // Le serveur Next peut prendre quelques secondes à démarrer.
+    }
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
+async function startBundledNextServer() {
+  if (!app.isPackaged || configuredStartUrl) return;
+
+  const appDirectory = getBundledNextAppPath();
+  const serverPath = appDirectory && path.join(appDirectory, 'server.js');
+  if (!appDirectory || !serverPath || !fs.existsSync(serverPath)) {
+    throw new Error(`Serveur Next embarqué introuvable: ${serverPath || 'chemin indisponible'}`);
+  }
+
+  nextServerProcess = spawn(process.execPath, [serverPath], {
+    cwd: appDirectory,
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: '1',
+      HOSTNAME: '127.0.0.1',
+      NODE_ENV: 'production',
+      PORT: String(BUNDLED_APP_PORT),
+    },
+    stdio: 'inherit',
+    windowsHide: true,
+  });
+
+  nextServerProcess.on('error', error => {
+    console.error('[Electron] Impossible de démarrer le serveur Next embarqué:', error.message);
+  });
+
+  if (!(await waitForLocalApp(startUrl))) {
+    throw new Error(`Le serveur Next embarqué ne répond pas sur ${startUrl}`);
+  }
+}
+
+function stopBundledNextServer() {
+  if (!nextServerProcess || nextServerProcess.killed) return;
+  nextServerProcess.kill();
+  nextServerProcess = null;
 }
 
 let mainWindow = null;
@@ -1046,9 +1105,10 @@ if (!gotSingleInstanceLock) {
     if (updateCheckTimer) clearInterval(updateCheckTimer);
     if (updateInstallTimer) clearTimeout(updateInstallTimer);
     stopSystemActivityTracking();
+    stopBundledNextServer();
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     recordSuccessfulStart();
     writeUpdateLog('application-started', {
       version: app.getVersion(),
@@ -1059,6 +1119,12 @@ if (!gotSingleInstanceLock) {
     void configureWindowsJumpList(recentContacts);
     configureApplicationMenu();
     configureSessionPermissions();
+    try {
+      await startBundledNextServer();
+    } catch (error) {
+      console.error('[Electron] Interface locale indisponible, retour au site distant:', error.message);
+      startUrl = PRODUCTION_URL;
+    }
     createMainWindow();
     startSystemActivityTracking();
     configureAutoUpdater();
