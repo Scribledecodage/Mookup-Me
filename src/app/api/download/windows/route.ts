@@ -4,9 +4,25 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const REPOSITORY = 'Scribledecodage/Mookup-Me';
-const RELEASE_METADATA_URL = `https://github.com/${REPOSITORY}/releases/latest/download/latest.yml`;
+const RELEASES_URL = `https://api.github.com/repos/${REPOSITORY}/releases?per_page=20`;
 const GITHUB_HEADERS = {
+  Accept: 'application/vnd.github+json',
   'User-Agent': 'Mookup-Website',
+};
+
+type GithubReleaseAsset = {
+  name: string;
+  size: number;
+  browser_download_url: string;
+};
+
+type GithubRelease = {
+  tag_name: string;
+  draft: boolean;
+  prerelease: boolean;
+  created_at: string;
+  published_at?: string | null;
+  assets: GithubReleaseAsset[];
 };
 
 type WindowsReleaseAsset = {
@@ -16,36 +32,44 @@ type WindowsReleaseAsset = {
   url: string;
 };
 
-function parseLatestWindowsMetadata(metadata: string): WindowsReleaseAsset {
-  const version = metadata.match(/^version:\s*([^\s]+)\s*$/m)?.[1];
-  const name = metadata.match(/^\s+-\s+url:\s*([^\s]+)\s*$/m)?.[1];
-  const sizeValue = metadata.match(/^\s+size:\s*(\d+)\s*$/m)?.[1];
+function findLatestWindowsAsset(releases: GithubRelease[]): WindowsReleaseAsset {
+  const candidates = releases
+    .filter(release => !release.draft && !release.prerelease)
+    .sort((left, right) => {
+      const leftDate = Date.parse(left.published_at || left.created_at);
+      const rightDate = Date.parse(right.published_at || right.created_at);
+      return rightDate - leftDate;
+    })
+    .map(release => {
+      const asset = release.assets.find(({ name }) => /^Mookup-Setup-.+\.exe$/i.test(name));
+      return asset ? { release, asset } : null;
+    })
+    .filter((candidate): candidate is { release: GithubRelease; asset: GithubReleaseAsset } => candidate !== null);
 
-  if (!version || !name || !/^Mookup-Setup-.+\.exe$/i.test(name)) {
-    throw new Error('Le latest.yml ne contient aucun installeur Windows valide.');
+  const candidate = candidates[0];
+  if (!candidate) {
+    throw new Error('Aucun installeur Windows publié dans les releases Mookup.');
   }
 
   return {
-    version,
-    name,
-    size: sizeValue ? Number(sizeValue) : undefined,
-    url: `https://github.com/${REPOSITORY}/releases/latest/download/${encodeURIComponent(name)}`,
+    version: candidate.release.tag_name.replace(/^v/i, ''),
+    name: candidate.asset.name,
+    size: candidate.asset.size,
+    url: candidate.asset.browser_download_url,
   };
 }
 
 async function getLatestWindowsAsset(): Promise<WindowsReleaseAsset> {
-  // Le fichier latest.yml est public et évite la limite de l’API GitHub
-  // lorsqu’aucun token serveur n’est configuré sur le déploiement web.
-  const metadataResponse = await fetch(RELEASE_METADATA_URL, {
+  const releasesResponse = await fetch(RELEASES_URL, {
     headers: GITHUB_HEADERS,
     cache: 'no-store',
   });
 
-  if (!metadataResponse.ok) {
-    throw new Error(`Métadonnées Windows indisponibles (${metadataResponse.status})`);
+  if (!releasesResponse.ok) {
+    throw new Error(`Releases Windows indisponibles (${releasesResponse.status})`);
   }
 
-  return parseLatestWindowsMetadata(await metadataResponse.text());
+  return findLatestWindowsAsset(await releasesResponse.json() as GithubRelease[]);
 }
 
 export async function GET(request: Request) {
@@ -65,8 +89,6 @@ export async function GET(request: Request) {
       });
     }
 
-    // Le serveur suit la redirection GitHub en interne : le navigateur reste
-    // sur le site et reçoit directement un fichier à télécharger.
     const installerResponse = await fetch(asset.url, {
       redirect: 'follow',
       cache: 'no-store',

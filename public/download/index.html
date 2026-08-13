@@ -114,9 +114,10 @@
 
                         <a 
                             id="download-btn"
-                            href="https://github.com/Scribledecodage/Mookup-Me/releases/latest/download/Mookup-Messagerie.apk"
-                            class="block w-full bg-[#1a73e8] text-white text-center py-3 rounded font-medium hover:bg-[#1557b0] transition-colors shadow-sm"
+                            href="/api/download/android"
+                            class="flex w-full items-center justify-center gap-2 rounded-lg border border-[#d8ecdf] bg-[#edf7f1] py-3 text-center font-medium text-[#26734a] shadow-sm transition-colors hover:bg-[#e2f2e8]"
                         >
+                            <i class="ph ph-device-mobile text-lg" aria-hidden="true"></i>
                             Télécharger l’APK Android
                         </a>
 
@@ -150,7 +151,7 @@
 
     <script>
         const ANDROID_RELEASE_TAG = 'v0.0.1';
-        const ANDROID_DOWNLOAD_URL = `https://github.com/Scribledecodage/Mookup-Me/releases/download/${ANDROID_RELEASE_TAG}/Mookup-Messagerie.apk`;
+        const ANDROID_DOWNLOAD_URL = '/api/download/android';
         const WINDOWS_DOWNLOAD_URL = '/api/download/windows';
         const ANDROID_ICON_URL = 'https://www.gstatic.com/images/branding/product/1x/android_48dp.png';
 
@@ -185,7 +186,7 @@
                 description.textContent = 'Installez Mookup Client sur votre ordinateur Windows pour profiter des notifications et d’une fenêtre dédiée.';
                 button.href = WINDOWS_DOWNLOAD_URL;
                 button.removeAttribute('download');
-                button.textContent = 'Télécharger pour Windows';
+                button.innerHTML = '<i class="ph ph-windows-logo text-lg" aria-hidden="true"></i> Télécharger pour Windows';
                 compatibility.textContent = 'Compatible Windows 10 et Windows 11 en 64 bits';
                 return;
             }
@@ -202,9 +203,9 @@
                 description.textContent = 'La version iPhone est en préparation. En attendant, utilisez Mookup depuis le navigateur Safari.';
                 button.removeAttribute('href');
                 button.removeAttribute('download');
-                button.textContent = 'Bientôt disponible sur iPhone';
-                button.classList.remove('bg-[#1a73e8]', 'hover:bg-[#1557b0]');
-                button.classList.add('bg-gray-400', 'cursor-not-allowed');
+                button.innerHTML = '<i class="ph ph-device-mobile text-lg" aria-hidden="true"></i> Bientôt disponible sur iPhone';
+                button.classList.remove('border-[#d8ecdf]', 'bg-[#edf7f1]', 'text-[#26734a]', 'hover:bg-[#e2f2e8]');
+                button.classList.add('border-gray-300', 'bg-gray-400', 'text-white', 'cursor-not-allowed');
                 compatibility.textContent = 'Application iOS bientôt disponible';
                 return;
             }
@@ -222,7 +223,7 @@
             description.textContent = 'Profitez d’une communication décentralisée et sécurisée directement sur votre appareil mobile. L’installation via APK vous donne accès aux dernières fonctionnalités.';
             button.href = ANDROID_DOWNLOAD_URL;
             button.setAttribute('download', '');
-            button.textContent = 'Télécharger l’APK Android';
+            button.innerHTML = '<i class="ph ph-device-mobile text-lg" aria-hidden="true"></i> Télécharger l’APK Android';
             compatibility.textContent = 'Compatible Android 8.0 et supérieur';
         }
 

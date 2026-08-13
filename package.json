@@ -1,6 +1,6 @@
 {
   "name": "mookup",
-  "version": "3.0.40",
+  "version": "3.0.41",
   "description": "Mookup desktop application",
   "author": "Team Mookup",
   "private": true,
@@ -9,7 +9,8 @@
     "dev": "next dev",
     "electron": "node scripts/start-electron-local.mjs",
     "electron:dev": "node scripts/start-electron-local.mjs",
-    "electron:prepare": "next build && node scripts/prepare-electron-package.mjs",
+    "windows:icon": "node scripts/generate-windows-icon.mjs",
+    "electron:prepare": "node scripts/clean-electron-output.mjs && npm run windows:icon && next build && node scripts/prepare-electron-package.mjs",
     "preelectron:pack": "npm run electron:prepare",
     "preelectron:dist": "npm run electron:prepare",
     "preelectron:publish": "npm run electron:prepare",
@@ -115,9 +116,15 @@
     "files": [
       "**/*"
     ],
-    "icon": "Logo.png",
+    "extraResources": [
+      {
+        "from": ".electron-app/next-app/node_modules",
+        "to": "next-node_modules"
+      }
+    ],
+    "icon": "public/Logo.png",
     "win": {
-      "icon": "Logo.ico",
+      "icon": "public/Logo.ico",
       "signAndEditExecutable": true,
       "target": [
         {
@@ -134,8 +141,8 @@
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Mookup Client",
-      "installerIcon": "Logo.ico",
-      "uninstallerIcon": "Logo.ico",
+      "installerIcon": "public/Logo.ico",
+      "uninstallerIcon": "public/Logo.ico",
       "runAfterFinish": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,

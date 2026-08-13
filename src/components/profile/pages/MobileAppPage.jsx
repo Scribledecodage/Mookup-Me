@@ -7,11 +7,10 @@ import {
   ChatCircle,
   CheckCircle,
   DeviceMobile,
-  DownloadSimple,
   Info,
 } from '@phosphor-icons/react';
 
-const ANDROID_DOWNLOAD_URL = 'https://github.com/Scribledecodage/Mookup-Me/releases/download/v0.0.1/Mookup-Messagerie.apk';
+const ANDROID_DOWNLOAD_URL = '/api/download/android';
 
 const FEATURES = [
   { icon: Bell, label: 'Recevez vos notifications où que vous soyez.' },
@@ -47,9 +46,9 @@ export default function MobileAppPage() {
           <a
             href={ANDROID_DOWNLOAD_URL}
             download
-            className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-sm bg-green-600 px-5 py-3 text-[14px] font-semibold text-white transition-colors hover:bg-green-500"
+            className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-lg border border-white/25 bg-white/15 px-5 py-3 text-[14px] font-semibold text-green-50 shadow-sm backdrop-blur-sm transition-colors hover:bg-white/25"
           >
-            <DownloadSimple size={19} />
+            <DeviceMobile size={19} />
             Télécharger l’APK
           </a>
         </div>

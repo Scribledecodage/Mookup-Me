@@ -825,7 +825,7 @@ header, nav,
     color: #a5b4fc !important;
   }
 
-  .public-welcome-panel .hover\\:bg-gray-50:hover {
+  .public-welcome-panel [class~="hover:bg-gray-50"]:hover {
     background: rgba(129, 140, 248, 0.23) !important;
   }
 }

@@ -97,6 +97,11 @@ async function startBundledNextServer() {
     throw new Error(`Serveur Next embarqué introuvable: ${serverPath || 'chemin indisponible'}`);
   }
 
+  const bundledNodeModulesPath = path.join(process.resourcesPath, 'next-node_modules');
+  const nodePath = [bundledNodeModulesPath, process.env.NODE_PATH]
+    .filter(Boolean)
+    .join(path.delimiter);
+
   nextServerProcess = spawn(process.execPath, [serverPath], {
     cwd: appDirectory,
     env: {
@@ -104,6 +109,7 @@ async function startBundledNextServer() {
       ELECTRON_RUN_AS_NODE: '1',
       HOSTNAME: '127.0.0.1',
       NODE_ENV: 'production',
+      NODE_PATH: nodePath,
       PORT: String(BUNDLED_APP_PORT),
     },
     stdio: 'inherit',
@@ -1141,9 +1147,18 @@ function getApplicationIcon() {
   return icon.isEmpty() ? iconPath : icon;
 }
 
+function isAbortedNavigationError(error) {
+  return error?.code === 'ERR_ABORTED'
+    || error?.errno === -3
+    || error?.errorCode === -3;
+}
+
 function loadMainWindowUrl(url) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   void mainWindow.loadURL(url).catch((error) => {
+    // Le chargement du site distant est volontairement interrompu lorsque le
+    // serveur Next local devient disponible. Ce n’est pas une erreur réelle.
+    if (isAbortedNavigationError(error)) return;
     console.error(`Échec du chargement de ${url}:`, error);
     mainWindow?.show();
   });
@@ -1242,6 +1257,11 @@ function createMainWindow() {
   });
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    // Le navigateur signale ERR_ABORTED (-3) lorsqu’une navigation est
+    // remplacée par la suivante. Electron passe alors du site distant au
+    // serveur Next local : ne pas afficher une fausse erreur dans les logs.
+    if (errorCode === -3) return;
+
     console.error(`Impossible de charger Mookup (${errorCode}: ${errorDescription}) : ${validatedURL}`);
 
     // Si quelqu’un lance directement l’exécutable Electron sans serveur local,
