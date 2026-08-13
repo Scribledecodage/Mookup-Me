@@ -33,7 +33,11 @@ export const metadata: Metadata = {
     title: "Mookup",
   },
   icons: {
-    icon: "/Logo.png",
+    icon: [
+      { url: "/Logo.ico", type: "image/x-icon", sizes: "any" },
+      { url: "/Logo.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/Logo.ico",
     apple: "/Logo.png",
   },
 };
@@ -52,6 +56,8 @@ export default function RootLayout({
         <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
         <meta httpEquiv="Pragma" content="no-cache" />
         <meta httpEquiv="Expires" content="0" />
+        <link rel="icon" href="/Logo.ico" sizes="any" />
+        <link rel="shortcut icon" href="/Logo.ico" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
         <style dangerouslySetInnerHTML={{ __html: `
           /* Sur Desktop, le haut du navigateur est gris clair (#f9f9f9) */
@@ -70,6 +76,27 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
+                  if (window.electronAPI?.isElectron) {
+                    // Electron possède déjà son propre cache de session : le
+                    // Service Worker PWA ne doit pas conserver une ancienne
+                    // page ou une ancienne icône dans l’application desktop.
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                      return Promise.all(registrations.map(function(registration) {
+                        return registration.unregister();
+                      }));
+                    }).then(function() {
+                      if ('caches' in window) {
+                        return caches.keys().then(function(keys) {
+                          return Promise.all(keys.map(function(key) { return caches.delete(key); }));
+                        });
+                      }
+                      return undefined;
+                    }).catch(function(err) {
+                      console.warn('Nettoyage du cache Electron impossible: ', err);
+                    });
+                    return;
+                  }
+
                   navigator.serviceWorker.register('/sw.js').then(function(registration) {
                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
                   }, function(err) {

@@ -1,9 +1,10 @@
-const CACHE_NAME = 'mookup-v3';
+const CACHE_NAME = 'mookup-v4';
 
 // Fichiers à mettre en cache immédiatement pour permettre un premier fallback hors ligne.
 const ASSETS_TO_CACHE = [
   '/',
   '/Logo.png',
+  '/Logo.ico',
   '/manifest.json'
 ];
 

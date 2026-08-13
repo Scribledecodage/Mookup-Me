@@ -1,6 +1,6 @@
 {
   "name": "mookup",
-  "version": "3.0.38",
+  "version": "3.0.39",
   "description": "Mookup desktop application",
   "author": "Team Mookup",
   "private": true,
@@ -98,6 +98,7 @@
   "build": {
     "appId": "com.mookup.app",
     "productName": "Mookup Client",
+    "executableName": "MookupClient",
     "asar": true,
     "asarUnpack": [
       "node_modules/get-windows/lib/binding/**/*.node",
@@ -130,9 +131,12 @@
     },
     "nsis": {
       "oneClick": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "shortcutName": "Mookup Client",
+      "installerIcon": "Logo.ico",
+      "uninstallerIcon": "Logo.ico",
+      "runAfterFinish": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
       "deleteAppDataOnUninstall": false

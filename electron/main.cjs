@@ -12,6 +12,12 @@ const UPDATE_INSTALL_DELAY_MS = 5000;
 const SYSTEM_ACTIVITY_POLL_INTERVAL_MS = 3000;
 const BUNDLED_APP_PORT = 3210;
 const BUNDLED_SERVER_TIMEOUT_MS = 12000;
+const APP_NAME = 'Mookup Client';
+
+// Déclarer l’identité Windows avant le verrou et avant la création de toute
+// fenêtre : Windows associe ainsi la fenêtre au raccourci Mookup, pas à Electron.
+app.setName(APP_NAME);
+app.setAppUserModelId(APP_ID);
 
 // Déclarer le processus avant les fonctions de démarrage afin que le mode
 // empaqueté ne crée pas accidentellement une variable globale implicite.
@@ -1160,7 +1166,9 @@ function createMainWindow() {
     height: 900,
     minWidth: 960,
     minHeight: 640,
-    show: false,
+    // Afficher immédiatement le cadre et le splash ; le serveur Next se lance
+    // en parallèle et ne peut plus retarder l’animation d’ouverture.
+    show: true,
     // Garder la barre Mookup personnalisée tout en exposant les contrôles
     // natifs Windows/Linux (réduire, agrandir, fermer).
     ...(process.platform === 'darwin'
@@ -1168,7 +1176,7 @@ function createMainWindow() {
       : { titleBarStyle: 'hidden', titleBarOverlay: getTitleBarOverlayOptions() }),
     resizable: true,
     thickFrame: true,
-    title: 'Mookup',
+    title: APP_NAME,
     icon: getApplicationIcon(),
     backgroundColor: '#111318',
     // La barre de menus native ne doit pas réapparaître à côté de notre barre.
@@ -1196,10 +1204,6 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
   });
-
-  // Ne jamais cacher la fenêtre derrière une authentification ou un serveur
-  // lent : le splash est léger et le contenu remplacera celui-ci dès qu’il est prêt.
-  setTimeout(() => mainWindow?.show(), 1200);
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (
@@ -1250,6 +1254,15 @@ function createMainWindow() {
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`Impossible de charger Mookup (${errorCode}: ${errorDescription}) : ${validatedURL}`);
+
+    // Si quelqu’un lance directement l’exécutable Electron sans serveur local,
+    // ne jamais laisser une page d’erreur/une page Electron apparaître : ouvrir
+    // automatiquement le site Mookup officiel.
+    const currentUrl = mainWindow?.webContents.getURL() || '';
+    if (mainWindow && !mainWindow.isDestroyed() && isDevelopment && !currentUrl.startsWith(PRODUCTION_URL)) {
+      startUrl = PRODUCTION_URL;
+      loadMainWindowUrl(PRODUCTION_URL);
+    }
     mainWindow?.show();
   });
 
@@ -1261,9 +1274,6 @@ function createMainWindow() {
     loadMainWindowUrl(initialUrl);
   }
 }
-
-app.setName('Mookup Client');
-app.setAppUserModelId(APP_ID);
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
